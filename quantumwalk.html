@@ -23,7 +23,42 @@
     <link rel="stylesheet" href="https://cindyjs.org/dist/v0.8/CindyJS.css">
     <script type="text/javascript" src="https://cindyjs.org/dist/v0.8/Cindy.js"></script>
 <script id="csinit" type="text/x-cindyscript">
-println("csinit start");
+
+// =====================================================================
+// SPRACHE / LANGUAGE
+// Setze "de" für Deutsch oder "en" für Englisch
+// Set "de" for German or "en" for English
+// =====================================================================
+lang = "de";
+
+// =====================================================================
+// ÜBERSETZUNGEN / TRANSLATIONS
+// =====================================================================
+translations = [
+  ["title",             "Diskreter 1D-Quanten-Walk",              "Discrete 1D Quantum Walk"],
+  ["coinBiasTitle",     "Quantenmünze: Bias p",                   "Quantum Coin: Bias p"],
+  ["coinBiasHigh",      "p groß: bleiben dominiert (↑→↑, ↓→↓)",   "p large: stay dominates (↑→↑, ↓→↓)"],
+  ["coinBiasLow",       "p klein: tauschen dominiert (↑↔↓)",      "p small: swap dominates (↑↔↓)"],
+  ["coinPhaseTitle",    "Quantenmünze: Phase φ",                  "Quantum Coin: Phase φ"],
+  ["coinPhaseDesc",     "dreht die Kreuzkopplung (↑↔↓)",          "rotates cross-coupling (↑↔↓)"],
+  ["coinPhaseReal",     "φ = 0,π: reell (±1) | sonst komplex",    "φ = 0,π: real (±1) | else complex"],
+  ["coinMatrixTitle",   "Quantenmünze als Matrix:",               "Quantum coin as matrix:"],
+  ["stepsTitle",        "Anzahl Schritte",                        "Number of Steps"],
+  ["initPhaseTitle",    "Initiale Phasenwinkel",                  "Initial Phase Angles"],
+  ["initPhaseDesc",     "(|↑⟩ rot, |↓⟩ blau)",                    "(|↑⟩ red, |↓⟩ blue)"],
+  ["normalized",        "normalisiert",                           "normalized"],
+  ["binomialBtn",       "Binomialverteilung (p=.5)",              "Binomial distribution (p=.5)"]
+];
+
+tr(key) := (
+  idx = if(lang == "de", 2, 3);
+  result = key;
+  forall(translations, entry,
+    if(entry_1 == key, result = entry_idx)
+  );
+  result
+);
+
 //colors
 cAlhambraDark = 1/256 * (98, 103, 72);
 cAlhambraLight = 1/256 * (202, 213, 183);
@@ -93,14 +128,14 @@ colSlN = cDeepRed;
 colTeXCoin = cMiddleBlue;
 colGauss = cAlhambraMid;
 
-btBinom.text = "Binomialverteilung (p=.5)";
+btBinom.text = tr("binomialBtn");
 btBinom.color= cAlhambraDark;
 btBinom.pressed = false;
 gauss = false;
 
 //title
 maketitle():= (
-drawtext((west-.55, north +.4),"Diskreter 1D-Quanten-Walk",
+drawtext((west-.55, north +.4),tr("title"),
   size -> 30,
   bold -> true,
   color -> cSFBBlue
@@ -278,7 +313,7 @@ drawDist(state, center, size) := (
 
 
     if(distNormalizeToMax,
-      drawtext([x0 + w, y0+1.05*h], "normalisiert
+      drawtext([x0 + w, y0+1.05*h], tr("normalized") + "
 max p ≈ " + format(pmax, 4),
                align->"left", size->12, color -> cSFBOrangeText)
     );
@@ -481,9 +516,9 @@ makeslider(x, y, l, hdist) := (
   xText = slCoinpS.x;
   yTop  = slCoinpY + titleGap + 2*lineStep;
 
-  drawtext((xText, yTop),                 "Quantenmünze: Bias p",                 align->"left", size->14, color->colSlP);
-  drawtext((xText, yTop - lineStep),      "p groß: bleiben dominiert (↑→↑, ↓→↓)", align->"left", size->12, color->colSlP);
-  drawtext((xText, yTop - 2*lineStep),    "p klein: tauschen dominiert (↑↔↓)",    align->"left", size->12, color->colSlP);
+  drawtext((xText, yTop),                 tr("coinBiasTitle"),                 align->"left", size->14, color->colSlP);
+  drawtext((xText, yTop - lineStep),      tr("coinBiasHigh"), align->"left", size->12, color->colSlP);
+  drawtext((xText, yTop - 2*lineStep),    tr("coinBiasLow"),    align->"left", size->12, color->colSlP);
 
   // rail + ticks
   draw(slCoinpS, slCoinpE, color->colSlP);
@@ -518,9 +553,9 @@ makeslider(x, y, l, hdist) := (
   xTextPhi = slPhiS.x;
   yTopPhi  = slPhiY + titleGapPhi + 2*lineStepPhi;
 
-  drawtext((xTextPhi, yTopPhi),                 "Quantenmünze: Phase φ",            align->"left", size->14, color->colSlPhi);
-  drawtext((xTextPhi, yTopPhi - lineStepPhi),   "dreht die Kreuzkopplung (↑↔↓)",    align->"left", size->12, color->colSlPhi);
-  drawtext((xTextPhi, yTopPhi - 2*lineStepPhi), "φ = 0,π: reell (±1) | sonst komplex", align->"left", size->12, color->colSlPhi);
+  drawtext((xTextPhi, yTopPhi),                 tr("coinPhaseTitle"),            align->"left", size->14, color->colSlPhi);
+  drawtext((xTextPhi, yTopPhi - lineStepPhi),   tr("coinPhaseDesc"),    align->"left", size->12, color->colSlPhi);
+  drawtext((xTextPhi, yTopPhi - 2*lineStepPhi), tr("coinPhaseReal"), align->"left", size->12, color->colSlPhi);
 
   draw(slPhiS, slPhiE, color->colSlPhi);
 
@@ -547,7 +582,7 @@ makeslider(x, y, l, hdist) := (
 
   // ---------- Symbolic matrix (TeX) ----------
   drawtext((x, y - 2.2*hdist + 0.75),
-           "Quantenmünze als Matrix:",
+           tr("coinMatrixTitle"),
            align->"center", size->14, color->colSlP);
 drawtext((x, y-2.2*hdist),
 "$U(p,\phi)=\begin{pmatrix}\sqrt{p} & e^{i\phi}\sqrt{1-p}\\ e^{-i\phi}\sqrt{1-p} & -\sqrt{p}\end{pmatrix}$",
@@ -562,7 +597,7 @@ align->"mid", size->14, color->colTeXCoin);
   xTextN = slMaxStepS.x;
   yTopN  = slMaxStepY + titleGapN + 1*lineStepN;
 
-  drawtext((xTextN, yTopN), "Anzahl Schritte", align->"left", size->14, color->colSlN);
+  drawtext((xTextN, yTopN), tr("stepsTitle"), align->"left", size->14, color->colSlN);
   draw(slMaxStepS, slMaxStepE, color->colSlN);
 
   // ticks/labels: 0,50,100,...,M (M=maxmaxSteps)
@@ -692,8 +727,8 @@ initphase(c, r, set) := (
 
   // title centered above
   drawtext(c + (0, r + gapTop),
-           "Initiale Phasenwinkel
-(|↑⟩ rot, |↓⟩ blau)",
+           tr("initPhaseTitle") + "
+" + tr("initPhaseDesc"),
            align->"center", size->14, color->cAnthracite);
 
   // relative phase centered below (Δθ in π-Notation)
@@ -709,7 +744,6 @@ makefooter()
 
 </script>
 <script id="csdraw" type="text/x-cindyscript">
-println("csdraw start");
 //Script (CindyScript)
 maketitle();
 makefooter();
