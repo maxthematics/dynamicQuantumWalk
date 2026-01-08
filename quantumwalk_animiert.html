@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    
+    <title>quantumwalk_Anim_v1.cdy</title>
+    <style type="text/css">
+        * {
+            margin: 0px;
+            padding: 0px;
+        }
+        
+        #CSConsole {
+            background-color: #FAFAFA;
+            border-top: 1px solid #333333;
+            bottom: 0px;
+            height: 200px;
+            overflow-y: scroll;
+            position: fixed;
+            width: 100%;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cindyjs.org/dist/v0.8/CindyJS.css">
+    <script type="text/javascript" src="https://cindyjs.org/dist/v0.8/Cindy.js"></script>
+<script id="csinit" type="text/x-cindyscript">
+
+// =====================================================================
+// SPRACHE / LANGUAGE
+// Setze "de" für Deutsch oder "en" für Englisch
+// Set "de" for German or "en" for English
+// =====================================================================
+lang = "en";
+
+// =====================================================================
+// ÜBERSETZUNGEN / TRANSLATIONS
+// =====================================================================
+translations = [
+  ["title",             "Zustandsübergänge beim diskreten 1D-Quanten-Walk",  "State Transitions in the Discrete 1D Quantum Walk"],
+  ["coinBiasTitle",     "Quantenmünze: Bias p",                   "Quantum Coin: Bias p"],
+  ["coinBiasHigh",      "p groß: bleiben dominiert (↑→↑, ↓→↓)",   "p large: stay dominates (↑→↑, ↓→↓)"],
+  ["coinBiasLow",       "p klein: tauschen dominiert (↑↔↓)",      "p small: swap dominates (↑↔↓)"],
+  ["coinPhaseTitle",    "Quantenmünze: Phase φ",                  "Quantum Coin: Phase φ"],
+  ["coinPhaseDesc",     "dreht die Kreuzkopplung (↑↔↓)",          "rotates cross-coupling (↑↔↓)"],
+  ["coinPhaseReal",     "φ = 0,π: reell (±1) | sonst komplex",    "φ = 0,π: real (±1) | else complex"],
+  ["coinMatrixTitle",   "Quantenmünze als Matrix:",               "Quantum coin as matrix:"],
+  ["animSpeedTitle",    "Animationsgeschwindigkeit",              "Animation Speed"],
+  ["initPhaseTitle",    "Initiale Phasenwinkel",                  "Initial Phase Angles"],
+  ["initPhaseDesc",     "(|↑⟩ rot, |↓⟩ blau)",                    "(|↑⟩ red, |↓⟩ blue)"]
+];
+
+tr(key) := (
+  idx = if(lang == "de", 2, 3);
+  result = key;
+  forall(translations, entry,
+    if(entry_1 == key, result = entry_idx)
+  );
+  result
+);
+
+//colors
+cAlhambraDark = 1/256 * (98, 103, 72);
+cAlhambraLight = 1/256 * (202, 213, 183);
+cSFBOrange = 1/256 * (242, 196, 111);
+cSFBOrangeText = 1/256 * (220, 150, 20);
+cSFBBlue = 1/256 * (39, 130, 197);
+cDarkBlue = 1/256 * (22, 42, 103);
+cLightBlue = 1/256 * (30, 167, 203);
+cMiddleBlue = 1/256 * (26, 105, 153);
+
+cLightGray = (.8, .8, .8);
+cDarkGray = (.3, .3, .3);
+
+cAlhambraMid = 1/256 * (150, 160, 120);
+cOliveGreen = 1/256 * (110, 120, 90);
+cMintGreen = 1/256 * (180, 220, 190);
+
+cAnthracite = 1/256 * (50, 50, 50);
+cGraphite = 1/256 * (70, 75, 80);
+cLightStoneGray = 1/256 * (190, 190, 185);
+
+cTerracotta = 1/256 * (190, 110, 90);
+cDeepRed = 1/256 * (140, 40, 40);
+cRosewood = 1/256 * (120, 70, 65);
+
+cBrightRed  = 1/256 * (234,  52,  58);
+cBrightBlue = 1/256 * ( 25, 145, 255);
+
+//Farbpalette
+colortest(P) := (
+  radius = 1;
+  spacingX = 5;
+  spacingY = 4;
+  countPerRow = 8;
+  index = 0;
+
+  colorList = [
+    ["cAlhambraDark", cAlhambraDark],
+    ["cAlhambraLight", cAlhambraLight],
+    ["cSFBOrange", cSFBOrange],
+    ["cSFBOrangeText", cSFBOrangeText],
+    ["cSFBBlue", cSFBBlue],
+    ["cDarkBlue", cDarkBlue],
+    ["cLightBlue", cLightBlue],
+    ["cMiddleBlue", cMiddleBlue],
+    ["cLightGray", cLightGray],
+    ["cDarkGray", cDarkGray],
+    ["cAlhambraMid", cAlhambraMid],
+    ["cOliveGreen", cOliveGreen],
+    ["cMintGreen", cMintGreen],
+    ["cAnthracite", cAnthracite],
+    ["cGraphite", cGraphite],
+    ["cLightStoneGray", cLightStoneGray],
+    ["cTerracotta", cTerracotta],
+    ["cDeepRed", cDeepRed],
+    ["cRosewood", cRosewood],
+		["cBrightRed", cBrightRed],
+		["cBrightBlue", cBrightBlue]
+  ];
+
+  forall(colorList, entry,
+    name = entry_1;
+    col = entry_2;
+    row = floor(index / countPerRow);
+    colIndex = mod(index, countPerRow);
+
+    pos = P + (colIndex * spacingX, -row * spacingY);
+    
+    fillcircle(pos, radius);
+    color(col);
+    fillcircle(pos, radius);
+    
+    drawtext(pos + (0, -radius - 1), name, fontsize->12, align->"center");
+
+    index = index + 1;
+  );
+);
+
+//colortest((0,14));
+;
+//parameter
+maxmaxSteps = 3;
+maxSteps= maxmaxSteps;
+
+//particle = [1+0*i, 0+0*i];
+particle = [1/sqrt(2), i/sqrt(2)];
+
+//coin
+coinP = .5;
+coinRot = 0;
+
+;
+//layout
+topleft = [0,0];
+width = 16;
+height = 12;
+
+west = topleft.x;
+east = topleft.x + width;
+north = topleft.y;
+south = topleft.y - height;
+
+
+controlProportion = .3;
+sepX = west + controlProportion * width;
+widthCtrl = sepX-west;
+widthSim = east-sepX;
+
+
+sliderWidth = .75*widthCtrl;
+initphaseR = 1;
+
+SLC.xy = (west + 1/3*widthCtrl, north - .1*height);
+IC.xy = (west + 1/3*widthCtrl , south + .22*height);
+
+
+C1.xy = (sepX, south);
+C2.xy = (east, north);
+
+// color assignment
+colDist = cSFBOrange;
+colUp = cBrightRed;
+colDown = cBrightBlue;
+colSlP = cMiddleBlue;
+colSlPhi = cMiddleBlue;
+colTeXCoin = cMiddleBlue;
+colSlN = cDeepRed;
+
+//title
+maketitle():= (
+drawtext((west-.55, north +.4),tr("title"),
+	size -> 30,
+	bold -> true,
+	color -> cSFBBlue
+););
+
+//credits
+makefooter():= (
+
+credits="Max Hoffmann | max.hoffmann@math.upb.de | v2025Oct26";
+funding="Supported by the Deutsche Forschungsgemeinschaft (DFG, German Research Foundation) – Project-ID 491392403 – TRR 358";
+
+drawtext((east+2, south-.6),credits,
+	color -> cSFBBlue,
+	align -> "right",
+	size -> 12
+);
+
+drawtext((east+2, south-.6),funding,
+	color -> cSFBBlue,
+	align -> "right",
+	size -> 10,
+	yoffset -> -15
+);
+
+);
+;
+//model
+N = 2*maxSteps + 1;
+mid = maxSteps+1;
+
+up(particle) := particle_1;
+down(particle) := particle_2;
+setUp(particle, newUp) := [newUp, down(particle)];
+setDown(particle, newDown) := [up(particle), newDown];
+
+upAngle(particle) := arctan2(up(particle));
+downAngle(particle) := arctan2(down(particle));
+
+upAbs(particle) := abs(up(particle));
+downAbs(particle) := abs(down(particle));
+
+
+// phase rotation
+cis(phi) := cos(phi) + i*sin(phi);
+
+coinGen(p, phi) := [
+  [ sqrt(p),              cis(phi)*sqrt(1-p) ],
+  [ cis(-phi)*sqrt(1-p), -sqrt(p)            ]
+];
+
+coin = coinGen(coinP, coinRot);
+
+initState = apply(1..N,[0+0*i, 0+0*i]);
+initState_mid = particle;
+
+
+
+;
+//control
+walkstep (state) := (
+	afterCoin = apply(state,coin*#);
+
+	N = length(state);	
+	nextstate = apply(1..N, [0+0*i,0+0*i]);
+	forall(1..N, j, (
+			L := up(afterCoin_j);
+			R := down(afterCoin_j);
+			if(j>1, nextstate_(j-1) = setUp(nextstate_(j-1), up(nextstate_(j-1)) + L));
+			if(j<N, nextstate_(j+1) = setDown(nextstate_(j+1), down(nextstate_(j+1)) + R));
+		)
+	);
+
+	nextstate;
+);
+
+;
+//phaseplot
+// --- helpers: minimal & safe ---
+// local middle index from the state's length
+midOf(state) := 1 + floor((length(state) - 1) / 2);
+
+// reachable range [jL, jR] for step s using local mid
+reachableRange(state, s) := (
+  N = length(state);
+  m = midOf(state);
+  jL = max(1, m - s);
+  jR = min(N, m + s);
+  [jL, jR]
+);
+
+// cut to reachable slice; never returns empty (falls back to the real middle site)
+cutStateToReachable(state, s) := (
+  R  = reachableRange(state, s);
+  jL = R_1; jR = R_2;
+  if(jL > jR,
+     [ state_(midOf(state)) ],
+     apply(jL..jR, j, state_j)
+  )
+);
+phase(z) := if(abs(z)==0, 0, arctan2(im(z), re(z)));
+
+arrowAlpha = 1;
+thickK = 4;
+
+drawArrow(c, len, phi, col, a, sz) := (
+  v = [cos(phi), sin(phi)];
+  p2 = [c_1 + len*v_1, c_2 + len*v_2];
+  draw(c, p2, color->col, alpha->a, size->sz);
+);
+
+drawSite(center, r, s) := (
+  // circle
+	fillcircle(center, r, color->cLightGray, alpha->.1);
+  drawcircle(center, r, color->cDarkGray, alpha->.5);
+
+	// konstante Strichdicke
+	arrowSizePx = 3.0;
+	epsAmp = 1e-6;
+	
+	alphaGamma = 0;
+	ampAlpha(L) := L^alphaGamma;
+
+
+	// up (red)
+	Lu   = abs(s_1);
+	phiu = if(Lu==0, 0, arctan2(re(s_1), im(s_1)));
+	if(Lu > epsAmp,
+  	drawArrow(center, r*Lu, phiu,  colUp,   ampAlpha(Lu), arrowSizePx);
+	);
+
+	// down (blue)
+	Ld   = abs(s_2);
+	phid = if(Ld==0, 0, arctan2(re(s_2), im(s_2)));
+	if(Ld > epsAmp,
+  	drawArrow(center, r*Ld, phid,  colDown, ampAlpha(Ld), arrowSizePx);
+	);
+  
+);
+
+// reachable after stepCount steps?  |colindex-mid| ≤ stepCount  and  (|colindex-mid| + stepCount) even
+isReachable(colIndex, stepCount) := (
+  distFromMid = abs(colIndex - mid);
+  (distFromMid <= stepCount) & (mod(distFromMid,2) == mod(stepCount,2))
+);
+
+/*
+  origin = [cx, cy]  upper mid of the board
+  dx     = horizontal distance between columns (positions)
+  dy     = vertical distance between rows (time steps)
+  r      = circle radius
+  mid    = global: index of the centre (== maxSteps+1)
+*/
+drawWalkBoard(walk, origin, dx, dy, r) := (
+  upperCenterX = origin_1;
+	upperCenterY = origin_2;
+  numRows  = length(walk);
+
+  forall(1..numRows, rno, (
+    state = walk_rno;
+    numSites = length(state);
+    stepCount = rno - 1;	
+		y = upperCenterY - (numRows-rno) * dy;
+
+    forall(1..numSites, j, (
+      if(isReachable(j, stepCount),
+        (
+          x = upperCenterX + (j - mid) * dx;
+          drawSite([x,y], r, state_j);
+
+				// Coordinates of the two neighboring centers on the next level (real or fictitious)
+				yNext = y + dy;
+				leftCenter  = (x - dx, yNext);
+				rightCenter = (x + dx, yNext);
+				
+				stateTransitionUp((x,y), leftCenter, r, coinP, coinRot, state_j, animT);
+				stateTransitionDown((x,y), rightCenter, r, coinP, coinRot, state_j,animT);
+				
+        )
+      );
+    ));
+  ));
+);
+
+
+/*
+  drawWalkInRectc(walk, BL, TR)
+
+  Inputs:
+    walk      : [state1, ..., stateT], state_t = list of sites [L,R]
+    BL, TR    : bottom-left [xL,yB] and top-right [xR,yT] corners of the full rectangle
+*/
+drawWalkInRect(walk, BL, TR) := (
+	histFrac = 0;
+	gap = 0;
+  // --- outer rectangle ---
+  xL = BL_1; yB = BL_2; xR = TR_1; yT = TR_2;
+  W  = xR - xL;         H  = yT - yB;
+  if(W <= 0 % H <= 0, return());
+
+  // --- time/space ---
+  T = length(walk);                 if(T == 0, return());
+  S = walk_(-1);                    // last state
+  Np = length(S);                   if(Np == 0, return());
+  s = T - 1;                        // last step count (>=0)
+  mLoc = 1 + floor((Np - 1)/2);     // local middle index of S
+  Hboard = H;
+
+  // --- column spacing fitted to the reachable width (2s+1 columns) ---
+  Nused = 2*s + 1;                  // reachable columns at step s
+  dx    = W / Nused;
+
+  // --- circle radius + row spacing ---
+  rH = 0.5 * dx;
+  rV = if(T > 0, Hboard / (2*T), Hboard/2);
+  r  = 0.98 * min(rH, rV);
+  dy = if(T > 1, (Hboard - 2*r) / (T - 1), 0);
+
+  // --- TOP-CENTER for the board (keep visual center fixed) ---
+  xC   = xL + W/2;
+  topX = xC + (mid - mLoc) * dx;    // compensate if global 'mid' ≠ local middle
+  topY = yB + Hboard - r;
+
+  // 1) board
+  drawWalkBoard(walk, [topX, topY], dx, dy, r);
+);
+;
+//slider
+// Draws a box around the coin UI (p-slider, phi-slider, matrix)
+// x,y  : same anchor you pass to makeslider (center of rails)
+// l    : same length as in makeslider
+// hdist: same vertical spacing as in makeslider
+// padX : extra horizontal padding (world units)
+// padY : extra vertical padding (world units)
+// fillA: optional fill alpha (0 = no fill)
+drawCoinPanelBox(x, y, l, hdist, padX, padY, fillA) := (
+  // same header geometry as in makeslider
+  titleGapP = 0.3;  lineStepP = 0.3;
+
+  // horizontal span: rails go from x - 0.5*l to x + 0.5*l
+  xL = (x - 0.5*l) - padX;
+  xR = (x + 0.5*l) + padX;
+
+  // vertical span:
+  // top = top line of p-header; bottom = matrix block baseline minus a safe margin
+  yTop = y + titleGapP + 2*lineStepP;
+  yMatBase = y - 2.2*hdist;    // same offset you use for the matrix placement
+  yBot = yMatBase - 0.9;       // small fudge below the TeX box
+
+  yB = yBot - padY;
+  yT = yTop + padY;
+
+  // optional soft fill
+  if(fillA > 0,
+    fillpoly([[xL,yB],[xR,yB],[xR,yT],[xL,yT]], color->colSlP, alpha->fillA)
+  );
+
+  // frame
+  draw([xL,yB],[xR,yB], color->colSlP, size->1.6);
+  draw([xR,yB],[xR,yT], color->colSlP, size->1.6);
+  draw([xR,yT],[xL,yT], color->colSlP, size->1.6);
+  draw([xL,yT],[xL,yB], color->colSlP, size->1.6);
+);
+
+makeslider(x, y, l, hdist) := (
+  // ---------- Slider: Bias p ----------
+  // rail geometry (must exist before we compute header positions)
+  slCoinpY = y;
+  slCoinpS = (x - 0.5*l, slCoinpY);
+  slCoinpE = (x + 0.5*l, slCoinpY);
+
+  // header (left-aligned at rail start)
+  titleGap = 0.3;  lineStep = 0.3;
+  xText = slCoinpS.x;
+  yTop  = slCoinpY + titleGap + 2*lineStep;
+
+  drawtext((xText, yTop),                 tr("coinBiasTitle"),                 align->"left", size->14, color->colSlP);
+  drawtext((xText, yTop - lineStep),      tr("coinBiasHigh"), align->"left", size->12, color->colSlP);
+  drawtext((xText, yTop - 2*lineStep),    tr("coinBiasLow"),    align->"left", size->12, color->colSlP);
+
+  // rail + ticks
+  draw(slCoinpS, slCoinpE, color->colSlP);
+  snapVals = [0, 0.25, 0.5, 0.75, 1];
+  snapEps  = 0.03;
+  tickGap  = -0.1;  tickLen = 0.2;
+
+  forall(snapVals, s, (
+    xt = slCoinpS.x + s*l;
+    draw((xt, slCoinpY - tickGap), (xt, slCoinpY - tickGap - tickLen), color->colSlP);
+    drawtext((xt, slCoinpY - tickGap - tickLen - 0.3), format(s, 2), align->"mid", color->colSlP);
+  ));
+
+  // handle + snapping
+  slCoinpP.color = colSlP;
+  slCoinpP.y = slCoinpY;
+  slCoinpP.x = min(slCoinpE.x, max(slCoinpS.x, slCoinpP.x));
+
+  tRaw = |slCoinpP, slCoinpS| / l;
+  nearest = tRaw; mind = 2;
+  forall(snapVals, s, if(abs(tRaw - s) < mind, (mind = abs(tRaw - s); nearest = s)));
+  t = if(mind < snapEps, nearest, tRaw);
+  slCoinpP.x = slCoinpS.x + t*l;
+  coinP = t;
+
+  // ---------- Slider: Phase φ (π/2 snaps) ----------
+  slPhiY = y - hdist;
+  slPhiS = (x - 0.5*l, slPhiY);
+  slPhiE = (x + 0.5*l, slPhiY);
+
+  titleGapPhi = 0.3;  lineStepPhi = 0.33;
+  xTextPhi = slPhiS.x;
+  yTopPhi  = slPhiY + titleGapPhi + 2*lineStepPhi;
+
+  drawtext((xTextPhi, yTopPhi),                 tr("coinPhaseTitle"),            align->"left", size->14, color->colSlPhi);
+  drawtext((xTextPhi, yTopPhi - lineStepPhi),   tr("coinPhaseDesc"),    align->"left", size->12, color->colSlPhi);
+  drawtext((xTextPhi, yTopPhi - 2*lineStepPhi), tr("coinPhaseReal"), align->"left", size->12, color->colSlPhi);
+
+  draw(slPhiS, slPhiE, color->colSlPhi);
+
+  phiSnapVals = [0, 0.25, 0.5, 0.75, 1];
+  phiSnapEps  = 0.03;  phiTickGap = -0.1;  phiTickLen = 0.2;
+
+  phiTickLabel(s) := if(s==0,"0", if(s==0.25,"π/2", if(s==0.5,"π", if(s==0.75,"3π/2","2π"))));
+  forall(phiSnapVals, s, (
+    xt = slPhiS.x + s*l;
+    draw((xt, slPhiY - phiTickGap), (xt, slPhiY - phiTickGap - phiTickLen), color->colSlPhi);
+    drawtext((xt, slPhiY - phiTickGap - phiTickLen - 0.3), phiTickLabel(s), align->"mid", color->colSlPhi);
+  ));
+
+  slCoinPhiP.color = colSlPhi;
+  slCoinPhiP.y = slPhiY;
+  slCoinPhiP.x = min(slPhiE.x, max(slPhiS.x, slCoinPhiP.x));
+
+  tPhiRaw = |slCoinPhiP, slPhiS| / l;
+  nearestPhi = tPhiRaw; mindPhi = 2;
+  forall(phiSnapVals, s, if(abs(tPhiRaw - s) < mindPhi, (mindPhi = abs(tPhiRaw - s); nearestPhi = s)));
+  tPhi = if(mindPhi < phiSnapEps, nearestPhi, tPhiRaw);
+  slCoinPhiP.x = slPhiS.x + tPhi*l;
+  coinRot = 2*pi*tPhi;
+
+  // ---------- Symbolic matrix (TeX) ----------
+  drawtext((x, y - 2.2*hdist + 0.75),
+           tr("coinMatrixTitle"),
+           align->"center", size->14, color->colSlP);
+drawtext(
+  (x,y-2.2*hdist), 
+  "$U(p,\phi)=
+\begin{pmatrix}
+\sqrt{p} & e^{i\phi}\sqrt{1-p}\\
+e^{-i\phi}\sqrt{1-p} & -\sqrt{p}
+\end{pmatrix}$",
+	align->"mid", size -> 14, color ->colTeXCoin
+);
+
+  // ---------- Slider: speed ----------
+  slMaxStepY = y - 5.5*hdist;
+  slMaxStepS = (x - 0.5*l, slMaxStepY);
+  slMaxStepE = (x + 0.5*l, slMaxStepY);
+
+  titleGapN = 0.3;  lineStepN = 0.30;
+  xTextN = slMaxStepS.x;
+  yTopN  = slMaxStepY + titleGapN;
+
+  drawtext((xTextN, yTopN), tr("animSpeedTitle"), align->"left", size->14, color->colSlN);
+  draw(slMaxStepS, slMaxStepE, color->colSlN);
+
+  // handle + integer snap
+  slMaxStepP.color = colSlN;
+  slMaxStepP.y = slMaxStepY;
+  slMaxStepP.x = min(slMaxStepE.x, max(slMaxStepS.x, slMaxStepP.x));
+
+  animLength=.2+(1-|slMaxStepP, slMaxStepS|/l)*20;
+
+
+  // refresh coin from sliders
+  coin = coinGen(coinP, coinRot);
+);
+
+// ---------- initial handle placement + call ----------
+sliderMx = SLC.x;
+sliderMy = SLC.y;
+sliderL  = sliderWidth;
+
+slCoinpP.x    = sliderMx;
+slCoinPhiP.x  = sliderMx - 0.5*sliderL;
+
+makeslider(sliderMx, sliderMy, sliderL, 2);
+//drawCoinPanelBox(sliderMx, sliderMy, sliderL, 2, 0.35, 0.35, 0.06);
+;
+//initphase
+// wrap angle to (-pi, pi]
+wrapPi(a) := (
+  b = a - 2*pi*floor((a + pi)/(2*pi));
+  if(b<=-pi, b+2*pi, b)
+);
+
+// pretty-print as multiple of π (e.g. -0.5π, 1.25π)
+formatPi(phi) := (
+  k = round((phi/pi)*100)/100;           // 2 decimal multiples of π
+  if(abs(k) < 1e-9, "0",
+    if(abs(k-1) < 1e-9, "π",
+      if(abs(k+1) < 1e-9, "-π",
+        format(k,2) + "π"
+      )
+    )
+  )
+);
+
+initphase(c, r, set) := (
+  if(set,
+    (
+      downP.xy   = c + (0, r*sqrt(.5));
+      upP.xy = c + (r*sqrt(.5), 0);
+    ),
+    (
+      upP.xy = c + min(r, |c,upP.xy|) * (upP - c)/|c,upP.xy|;
+      downP.xy = c + sqrt(abs(r^2 - |c, upP|^2)) *
+                        if(|c, downP| > 0.0001, (downP - c)/|c, downP|, [1, 0]);
+    )
+  );
+
+  upP.color = colUp;    downP.color = colDown;
+  upP.size  = 5;        downP.size  = 5;
+
+  // node
+  fillcircle(c, r, color->cLightGray, alpha->.1);
+  drawcircle(c, r, color->cDarkGray,  alpha->.5);
+
+  // spokes
+  draw(c, upP,   color->colUp,   size->2);
+  draw(c, downP, color->colDown, size->2);
+
+  // map knob positions to complex amplitudes on the unit circle
+  zUp   = (upP.xy   - c) / r;
+  zDown = (downP.xy - c) / r;
+
+	complexUp   = zUp.x   + i*zUp.y;
+	complexDown = zDown.x + i*zDown.y;
+
+  // phases (CCW), relative phase
+  thetaUp   = arctan2(im(complexUp),   re(complexUp));
+  thetaDown = arctan2(im(complexDown), re(complexDown));
+  dTheta    = wrapPi(thetaDown - thetaUp);
+
+  // build the start particle
+  particle       = [complexUp, complexDown];
+  initState_(mid)  = particle;
+
+  // -------- labels --------
+  // layout gaps relative to radius
+  gapTop    = 0.5*r;     // space above the circle
+  gapBottom = 0.4*r;     // space below the circle
+
+  // title centered above
+  drawtext(c + (0, r + gapTop),
+           tr("initPhaseTitle") + "
+" + tr("initPhaseDesc"),
+           align->"center", size->14, color->cAnthracite);
+
+  // relative phase centered below (Δθ in π-Notation)
+  drawtext(c + (0, -r - gapBottom),
+           "Δθ ≈ " + formatPi(dTheta),
+           align->"center", size->14, color->cSFBOrangeText);
+);
+
+initphase(IC, initphaseR, true);
+maketitle();
+//makefooter()
+;
+//stateTransition
+// --- init (run once) ---
+btAnim.pressed=true;
+btAnim.color=cDeepRed;
+animrun=true;
+
+btAnimScript():=(
+	if(animrun,
+		stopanimation(),
+		playanimation()
+	);
+	animrun=!animrun;
+);
+
+animLength = 1;            // seconds; change as you like
+waittime   = 0.3;    // seconds to hold at 0 and 1
+// Computes and returns t with start/end holds.
+// Call this from draw (or anywhere) to get the current t in [0,1].
+updateT() := (
+  al = max(1e-6, animLength);   // avoid divide-by-zero
+  wt = max(0, waittime);        // no negative holds
+  period = al + 2*wt;           // total cycle time
+
+  ph = mod(seconds(), period);  // phase within the cycle
+
+  if (ph < wt,
+    0,                          // initial hold
+    if (ph < wt + al,
+      (ph - wt)/al,             // ramp 0→1
+      1                         // final hold
+    )
+  )
+);
+
+resetclock();              // start timestamp at 0
+playanimation();           // ensure continuous updates
+
+
+mapValue(x, a, b, c, d) := c + (x - a) * (d - c) / (b - a);
+mapValueF(x,a,b,c,d) := (
+	if (x<a, c,
+		if(x>b, d,
+			mapValue(x,a,b,c,d);
+		);
+	);
+);
+
+stateTransitionUp(startC, endC, radius, coinbias, coinphase, state, t) := (
+
+	//t1: changelength and rotate
+	//t2: add/subtract
+	t1 = 1/3;
+	t2 = 2/3;
+	t3 = 5/6;
+
+
+	centerAtT = t*(endC-startC)+startC;
+
+	up = state_1;
+	scalarUp = mapValueF(t, 0, t1, 1, sqrt(coinbias));
+	upAtT = scalarUp*up;
+	
+	down = state_2;
+	scalarDown = mapValueF(t, 0, t1, 1, sqrt(1-coinbias));
+	rotDown = cis(mapValueF(t, 0, t1, 0, coinphase));
+	downAtT = rotDown*scalarDown*down;
+
+	drawSite(centerAtT,radius,[0,0]);
+	draw(centerAtT, centerAtT+radius*(re(upAtT), im(upAtT)),
+		color -> colUp, size-> 3,alpha -> mapValueF(t,t2,1,1,0)
+	);
+
+	draw(centerAtT, centerAtT+radius*(re(downAtT), im(downAtT)),
+		color -> colDown, size-> 3,alpha -> mapValueF(t,t2,1,1,0)
+	);
+
+	if (t>t1,
+	draw(centerAtT+radius*(re(upAtT), im(upAtT)),
+			centerAtT+radius*(re(upAtT), im(upAtT))+radius*mapValueF(t,t1,t2,0,1)*(re(downAtT), im(downAtT)),
+		color -> colDown, size-> 3,alpha -> mapValueF(t,t2,1,1,0)););
+
+	if(t>t1,
+	draw(centerAtT+radius*(re(downAtT), im(downAtT)),
+			centerAtT+radius*(re(downAtT), im(downAtT))+radius*mapValueF(t,t1,t2,0,1)*(re(upAtT), im(upAtT)),
+		color -> colUp, size-> 3,alpha -> mapValueF(t,t2,1,1,0));
+	);
+
+	if(t>t2,
+	draw(centerAtT,
+			centerAtT+mapValueF(t,t2,t3,0,1)*radius*((re(downAtT), im(downAtT))+(re(upAtT), im(upAtT))),
+		color -> colUp, size-> 3);
+	);
+
+	
+);
+
+stateTransitionDown(startC, endC, radius, coinbias, coinphase, state, t) := (
+
+	//t1: changelength and rotate
+	//t2: add/subtract
+	t1 = 1/3;
+	t2 = 2/3;
+	t3 = 5/6;
+
+
+	centerAtT = t*(endC-startC)+startC;
+
+	up = state_1;
+	scalarUp = mapValueF(t, 0, t1, 1, sqrt(1-coinbias));
+	RotUp = cis(mapValueF(t, 0, t1, 0, -coinphase));
+	upAtT = RotUp*scalarUp*up;
+	
+	down = state_2;
+	scalarDown = mapValueF(t, 0, t1, 1,-sqrt(coinbias));
+	downAtT = scalarDown*down;
+
+	drawSite(centerAtT,radius,[0,0]);
+	draw(centerAtT, centerAtT+radius*(re(upAtT), im(upAtT)),
+		color -> colUp, size-> 3,alpha -> mapValueF(t,t2,1,1,0)
+	);
+
+	draw(centerAtT, centerAtT+radius*(re(downAtT), im(downAtT)),
+		color -> colDown, size-> 3,alpha -> mapValueF(t,t2,1,1,0)
+	);
+
+	if (t>t1,
+	draw(centerAtT+radius*(re(upAtT), im(upAtT)),
+			centerAtT+radius*(re(upAtT), im(upAtT))+radius*mapValueF(t,t1,t2,0,1)*(re(downAtT), im(downAtT)),
+		color -> colDown, size-> 3,alpha -> mapValueF(t,t2,1,1,0)););
+
+	if(t>t1,
+	draw(centerAtT+radius*(re(downAtT), im(downAtT)),
+			centerAtT+radius*(re(downAtT), im(downAtT))+radius*mapValueF(t,t1,t2,0,1)*(re(upAtT), im(upAtT)),
+		color -> colUp, size-> 3,alpha -> mapValueF(t,t2,1,1,0));
+	);
+
+	if(t>t2,
+	draw(centerAtT,
+			centerAtT+mapValueF(t,t2,t3,0,1)*radius*((re(downAtT), im(downAtT))+(re(upAtT), im(upAtT))),
+		color -> colDown, size-> 3);
+	);
+
+	
+);
+;
+
+</script>
+<script id="csdraw" type="text/x-cindyscript">
+//Script (CindyScript)
+// --- draw (runs every frame) ---
+// t goes 0 → 1 over animLength seconds, then restarts at 0
+al = max(1e-6, animLength);     // guard against zero or negative
+animT = updateT();    // normalized phase in [0,1)
+
+walk = [initState];
+repeat(maxSteps,
+  walk = walk ++ [walkstep(walk_(-1))]
+);
+
+// --- build rectangle from two draggable points C1, C2 (points, not lists) ---
+BL = [min(C1.x, C2.x), min(C1.y, C2.y)];   // bottom-left
+TR = [max(C1.x, C2.x), max(C1.y, C2.y)];   // top-right
+
+// --- choose fractions/gap ---
+histFrac = 1/3;     // top area for histogram (0..1)
+gap      = 0.05;    // small vertical gap above the top row
+
+// --- draw everything packed into [BL, TR] ---
+drawWalkInRect(walk, BL, TR);
+;
+//Script (CindyScript)
+//slider p
+makeslider(SLC.x,SLC.y,sliderL,2);
+drawCoinPanelBox(sliderMx, sliderMy, sliderL, 2, 0.35, 0.35, 0.06);
+initphase(IC, initphaseR, false);
+
+maketitle();
+makefooter();
+
+;
+
+</script>
+    <script type="text/javascript">
+var cdy = CindyJS({
+  scripts: "cs*",
+  defaultAppearance: {
+    dimDependent: 0.7,
+    fontFamily: "sans-serif",
+    lineSize: 1,
+    pointSize: 5.0,
+    textsize: 12.0
+  },
+  angleUnit: "°",
+  geometry: [
+    {name: "slCoinpP", type: "Free", pos: [4.0, -2.999999999999999, 2.4999999999999996], dimDependent: 1, color: [0.098, 0.408, 0.596]},
+    {name: "slCoinPhiP", type: "Free", pos: [-0.24999999999999967, -4.0, 1.2499999999999998], dimDependent: 1, color: [0.098, 0.408, 0.596]},
+    {name: "upP", type: "Free", pos: [0.98594306888314, -4.0, 0.4273504273504274], dimDependent: 1, color: [0.914, 0.2, 0.224], border: false},
+    {name: "downP", type: "Free", pos: [0.7396370021168036, -4.0, 0.4622731263230022], dimDependent: 1, color: [0.094, 0.565, 0.996]},
+    {name: "C1", type: "Free", pos: [1.5999999999999999, -4.0, 0.3333333333333333], color: [0.831, 0.639, 1.0], visible: false, size: 3.0},
+    {name: "C2", type: "Free", pos: [4.0, 0.0, 0.25], color: [0.831, 0.639, 1.0], visible: false, size: 2.0},
+    {name: "SLC", type: "Free", pos: [4.0, -3.000000000000001, 2.5], color: [0.012, 0.655, 0.737], visible: false},
+    {name: "IC", type: "Free", pos: [0.6837606837606838, -4.0, 0.4273504273504274], color: [0.51, 0.949, 1.0], visible: false},
+    {name: "slMaxStepP", type: "Free", pos: [0.3917344878025649, -4.0, 0.3278688524590164], dimDependent: 1, color: [0.545, 0.153, 0.153]},
+    {name: "btAnim", type: "ToggleButton", pos: [0.742075461727722, -4.0, 0.3139705354771507], dimDependent: 1, color: [0.545, 0.153, 0.153], fillcolor: [1.0, 1.0, 1.0], fillalpha: 0.27272728085517883, pressed: true, pinned: true, script: "btAnimScript();", text: "Animation"}
+  ],
+  ports: [{
+    width: 1626,
+    height: 867,
+    id: "CSCanvas",
+    transform: [{visibleRect: [-0.9278283663115174, 1.172985187223495, 27.01855032989729, -13.728312678467178]}],
+    background: "rgb(255,255,255)"
+  }],
+  csconsole: false,
+  use: ["katex"],
+  cinderella: {build: 2091, version: [3, 0, 2091]}
+});
+    </script>
+</head>
+<body>
+    <div id="CSCanvas"></div>
+</body>
+</html>
