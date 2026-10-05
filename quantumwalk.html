@@ -1,56 +1,137 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    
-    <title>Diskreter 1D-Quanten-Walk</title>
-    <style type="text/css">
-        * {
-            margin: 0px;
-            padding: 0px;
-        }
-        
-        #CSConsole {
-            background-color: #FAFAFA;
-            border-top: 1px solid #333333;
-            bottom: 0px;
-            height: 200px;
-            overflow-y: scroll;
-            position: fixed;
-            width: 100%;
-        }
-    </style>
-    <link rel="stylesheet" href="https://cindyjs.org/dist/v0.8/CindyJS.css">
-    <script type="text/javascript" src="https://cindyjs.org/dist/v0.8/Cindy.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Discrete 1D Quantum Walk</title>
+  <style type="text/css">
+    * {
+      margin: 0px;
+      padding: 0px;
+    }
+
+    html, body, #CSCanvas {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    body {
+      position: fixed;
+      left: 0px;
+      top: 0px;
+    }
+
+    #CSConsole {
+      background-color: #FAFAFA;
+      border-top: 1px solid #333333;
+      bottom: 0px;
+      height: 200px;
+      overflow-y: scroll;
+      position: fixed;
+      width: 100%;
+    }
+
+    /* dark mode of the link overlay (class switched by qwTheme) */
+    #qwPanel.qwdark { background: #1d2126 !important; color: #e4e6e8 !important; border-color: #5aa6e0 !important; }
+    #qwPanel.qwdark input { background: #12151a; color: #e4e6e8; border-color: #666 !important; }
+    #qwPanel.qwdark button, #qwPanel.qwdark #qwHint { color: #aab0b6 !important; }
+  </style>
+  <link rel="stylesheet" href="https://cindyjs.org/dist/v0.8/CindyJS.css">
+  <script type="text/javascript" src="https://cindyjs.org/dist/v0.8/Cindy.js"></script>
 <script id="csinit" type="text/x-cindyscript">
 
 // =====================================================================
-// SPRACHE / LANGUAGE
-// Setze "de" für Deutsch oder "en" für Englisch
-// Set "de" for German or "en" for English
+// Contents of csinit (CindyScript definitions; csdraw is the main loop):
+//   1 language & texts          6 drawing (board, histograms, mini histograms)
+//   2 colours                   7 UI (chips, cards, sliders, start-state circle, panel)
+//   3 layout constants          8 layout computation
+//   4 model (coin, step, animation timing)  9 URL parameters & link
+//   5 measurement (single run, exact ensemble, collecting)
+// Convention: temporaries of functions are declared with regional(...), because
+// CindyScript variables are dynamically scoped (a callee would otherwise overwrite
+// the caller's variables). Plain globals are meant to be shared state.
 // =====================================================================
-lang = "en";
+
 
 // =====================================================================
-// ÜBERSETZUNGEN / TRANSLATIONS
+// 1  LANGUAGE & TEXTS
 // =====================================================================
+lang = "en";      // default "en"; "de" or "en"; switched by the DE | EN chips or by ?lang=
+
+// [key, German, English]
 translations = [
   ["title",             "Diskreter 1D-Quanten-Walk",              "Discrete 1D Quantum Walk"],
-  ["coinBiasTitle",     "Quantenmünze: Bias p",                   "Quantum Coin: Bias p"],
-  ["coinBiasHigh",      "p groß: bleiben dominiert (↑→↑, ↓→↓)",   "p large: stay dominates (↑→↑, ↓→↓)"],
-  ["coinBiasLow",       "p klein: tauschen dominiert (↑↔↓)",      "p small: swap dominates (↑↔↓)"],
-  ["coinPhaseTitle",    "Quantenmünze: Phase φ",                  "Quantum Coin: Phase φ"],
-  ["coinPhaseDesc",     "dreht die Kreuzkopplung (↑↔↓)",          "rotates cross-coupling (↑↔↓)"],
-  ["coinPhaseReal",     "φ = 0,π: reell (±1) | sonst komplex",    "φ = 0,π: real (±1) | else complex"],
-  ["coinMatrixTitle",   "Quantenmünze als Matrix:",               "Quantum coin as matrix:"],
-  ["stepsTitle",        "Anzahl Schritte",                        "Number of Steps"],
-  ["initPhaseTitle",    "Initiale Phasenwinkel",                  "Initial Phase Angles"],
-  ["initPhaseDesc",     "(|↑⟩ rot, |↓⟩ blau)",                    "(|↑⟩ red, |↓⟩ blue)"],
-  ["normalized",        "normalisiert",                           "normalized"],
-  ["binomialBtn",       "Binomialverteilung (p=.5)",              "Binomial distribution (p=.5)"]
+  ["cardCoin",          "Münzparameter",                          "Coin parameters"],
+  ["cardMatrix",        "Münzmatrix",                             "Coin matrix"],
+  ["cardWalk",          "Walk",                                   "Walk"],
+  ["coinBiasTitle",     "Bias p",                                 "Bias p"],
+  ["coinBiasHigh",      "p groß: Richtung behalten (← ↦ ←, → ↦ →)", "p large: keep direction (← ↦ ←, → ↦ →)"],
+  ["coinBiasLow",       "p klein: Richtung wechseln (← ↦ →, → ↦ ←)", "p small: switch direction (← ↦ →, → ↦ ←)"],
+  ["coinPhaseTitle",    "Phase φ",                                "Phase φ"],
+  ["coinPhaseDesc",     "dreht die Kopplung ← ↔ →",               "rotates the coupling ← ↔ →"],
+  ["coinPhaseReal",     "φ = 0, π: Matrix reell | sonst komplex", "φ = 0, π: matrix real | else complex"],
+  ["coinPhaseNote",     "(bei p = 0 oder 1 ohne Einfluss auf die Verteilung)", "(no effect on the distribution for p = 0 or 1)"],
+  ["stepsTitle",        "Anzahl Schritte",                        "Number of steps"],
+  ["initPhaseTitle",    "Startzustand |ψ₀⟩",                      "Initial state |ψ₀⟩"],
+  ["legQW",             "Quanten-Walk",                           "Quantum walk"],
+  ["legGalton",         "klassisch (Galtonbrett",                 "classical (Galton board"],
+  ["galtonChip",        "klassischer Vergleich: Galtonbrett",     "classical comparison: Galton board"],
+  ["galtonQ",           "q = Wahrscheinlichkeit für rechts",      "q = probability of going right"],
+  ["coinHad",           "Hadamard",                               "Hadamard"],
+  ["coinStay",          "bleiben (p=1)",                          "stay (p=1)"],
+  ["coinSwap",          "tauschen (p=0)",                         "swap (p=0)"],
+  ["coinCmplx",         "komplex (φ=π/2)",                        "complex (φ=π/2)"],
+  ["startCap",          "Startzustand wählen (normiert):",        "Choose initial state (normalized):"],
+  ["msChipPos",         "Ortsmessung",                            "Position measurement"],
+  ["msChipCoin",        "Qubit-Messung",                          "Qubit measurement"],
+  ["msTitle",           "Messung",                                "Measurement"],
+  ["msCol",             "messen",                                 "measure"],
+  ["msHint",            "Kästchen oder Zeile anklicken: Ort messen", "click a box or row to measure the position"],
+  ["msSecWhat",         "Was wird gemessen?",                     "What is measured?"],
+  ["msSecRuns",         "Versuche",                               "Runs"],
+  ["msSecLeg",          "Legende",                                "Legend"],
+  ["msPosLab",          "Ort:",                                   "Position:"],
+  ["msCoinLab",         "Qubit:",                                 "Qubit:"],
+  ["msSingle",          "Einzelversuch:",                         "Single run:"],
+  ["msMany",            "Viele Versuche:",                        "Many runs:"],
+  ["msAll",             "alle",                                   "all"],
+  ["msNone",            "keine",                                  "none"],
+  ["msRoll",            "neu würfeln",                            "re-roll"],
+  ["msReset",           "zurücksetzen",                           "reset"],
+  ["msLegRun",          "dieser Versuch",                         "this run"],
+  ["msColPos",          "Ort",                                    "position"],
+  ["msColCoin",         "Qubit",                                  "qubit"],
+  ["msLegFrame",       "gestrichelt rot/blau: Qubit-Messung ergab |←⟩ / |→⟩", "dashed red/blue: qubit measurement gave |←⟩ / |→⟩"],
+  ["msLegFix",          "Qubit durch Ortsmessung schon festgelegt", "qubit already fixed by position measurement"],
+  ["msLegOut",          "Ergebnis dieses Versuchs",               "outcome of this run"],
+  ["msLegEns",          "Mittel über viele Versuche (exakt)",     "average over many runs (exact)"],
+  ["msLegFreq",         "relative Häufigkeit",                    "relative frequency"],
+  ["msLegGalton",       "klassisch (Galtonbrett)",                "classical (Galton board)"],
+  ["msExChip",          "exaktes Mittel zeigen",                  "show exact mean"],
+  ["msMiniChip",        "Verteilung je Zeile",                    "distribution per row"],
+  ["msLegMini",         "je Zeile auf eigenes Maximum skaliert",  "each row scaled to its own maximum"],
+  ["msBusy",            "berechne …",                             "computing …"],
+  ["msOffHint",         "Messung in der Karte „Walk“ einschalten", "Switch on a measurement in the Walk card"],
+  ["animNoMs",          "Messung im Animationsmodus nicht verfügbar", "measurement not available in animation mode"],
+  ["tabCoin",           "Parameter",                               "Parameters"],
+  ["tabMatrix",         "Matrix",                                 "Matrix"],
+  ["tabStart",          "Start",                                  "Start"],
+  ["tabWalk",           "Walk",                                   "Walk"],
+  ["tabMs",             "Messung",                                "Measurement"],
+  ["cardAnim",          "Animation",                              "Animation"],
+  ["animChip",          "Schritte animieren",                     "animate steps"],
+  ["animPause",         "❚❚ Pause",                               "❚❚ pause"],
+  ["animResume",        "▶ Weiter",                               "▶ resume"],
+  ["animSlow",          "langsam",                                "slow"],
+  ["animFast",          "schnell",                                "fast"],
+  ["animPerStep",       " s pro Schritt",                         " s per step"],
+  ["linkHint",          "mit Strg+C bzw. ⌘+C kopieren",           "copy with Ctrl+C or ⌘+C"]
 ];
 
+// text for a key in the current language (the key itself if unknown)
 tr(key) := (
+  regional(idx, result, entry);
   idx = if(lang == "de", 2, 3);
   result = key;
   forall(translations, entry,
@@ -59,7 +140,11 @@ tr(key) := (
   result
 );
 
-//colors
+
+// =====================================================================
+// 2  COLOURS
+// =====================================================================
+// ---- Colour palette (corporate design) - keep complete, including unused colours ----
 cAlhambraDark = 1/256 * (98, 103, 72);
 cAlhambraLight = 1/256 * (202, 213, 183);
 cSFBOrange = 1/256 * (242, 196, 111);
@@ -87,116 +172,169 @@ cRosewood = 1/256 * (120, 70, 65);
 cBrightRed  = 1/256 * (234,  52,  58);
 cBrightBlue = 1/256 * ( 25, 145, 255);
 
+cGreen = 1/256 * (50, 150, 85);
 
-
-//colortest((0,14));
-;
-//layout
-topleft = (0,0);
-width = 16;
-height = 12;
-
-west = topleft.x;
-east = topleft.x + width;
-north = topleft.y;
-south = topleft.y - height;
-
-
-controlProportion = .3;
-sepX = west + controlProportion * width;
-widthCtrl = sepX-west;
-widthSim = east-sepX;
-
-
-sliderWidth = .75*widthCtrl;
-initphaseR = 1;
-
-SLC.xy = (west + 1/3*widthCtrl, north - .1*height);
-IC.xy = (west + 1/3*widthCtrl , south + .22*height);
-
-
-C1.xy = (sepX, south);
-C2.xy = (east, north);
-
-// color assignment
+// ---- Colour roles ----
+// blue = coin (cards 1+2, also the |→⟩ component), red = |←⟩ component,
+// orange = quantum probability, violet = measurement, green = classical, graphite = neutral controls
 colDist = cSFBOrange;
 colUp = cBrightRed;
 colDown = cBrightBlue;
 colSlP = cMiddleBlue;
 colSlPhi = cMiddleBlue;
-colSlN = cDeepRed;
+colSlN = cGraphite;
 colTeXCoin = cMiddleBlue;
-colGauss = cAlhambraMid;
+colGauss = cGreen;
+colCoinCard = cMiddleBlue;
+colNeutral = cGraphite;
+colMs = 1/256 * (125, 75, 185);        // violet: measurement
+colMsDark = 1/256 * (75, 30, 135);
 
-btBinom.text = tr("binomialBtn");
-btBinom.color= cAlhambraDark;
-btBinom.pressed = false;
-gauss = false;
-
-//title
-maketitle():= (
-drawtext((west-.55, north +.4),tr("title"),
-  size -> 30,
-  bold -> true,
-  color -> cSFBBlue
-););
-
-
-//credits
-makefooter():= (
-  credits="Max Hoffmann | max.hoffmann@math.upb.de | v2025Oct26";
-  funding="Supported by the Deutsche Forschungsgemeinschaft (DFG, German Research Foundation) – Project-ID 491392403 – TRR 358";
-
-  drawtext((east+2, south-.6),credits,
-    color -> cSFBBlue,
-    align -> "right",
-    size -> 12
-  );
-
-  drawtext((east+2, south-.6),funding,
-    color -> cSFBBlue,
-    align -> "right",
-    size -> 10,
-    yoffset -> -15
-  );
+// ---- Theme (light / dark) ----
+// The colour roles above (colUp, colDown, colDist, colMs, ...) and the neutral tokens th* are (re)assigned by
+// setTheme(dark): light = exactly the palette above; dark = palette colours mixed towards white (contrast on thBg).
+// Mode = user choice (themeUser: -1 none, 0 light, 1 dark; chip / ?theme=) else the system preference (sysDark, set by JS).
+sysDark = 0;  themeUser = -1;  themeCur = 0;
+// Touch device (coarse pointer, set by JS via touchSet): hit areas of chips >= cdTouchMin px, taller chips in tab mode, bigger handles.
+touchOn = false;
+mixW(c, t) := (1 - t)*c + t*(1, 1, 1);
+setTheme(dark) := (
+  themeCur = dark;
+  // light (as before)
+  thBg = (1, 1, 1);  thPaper = (1, 1, 1);  thOnCol = (1, 1, 1);          // page, "white" fills/halos, text on solid chips
+  thFg = cAnthracite;  thMuted = cGraphite;                                  // main text / axes, secondary text
+  thCircLine = cDarkGray;  thBlue = cSFBBlue;  thOrange = cSFBOrangeText;   // circle outlines, blue UI text, orange text
+  thCardA = .05;  thBandA = .13;                                             // card tint alpha, measurement band alpha
+  colUp = cBrightRed;  colDown = cBrightBlue;  colDist = cSFBOrange;
+  colMs = 1/256 * (125, 75, 185);  colMsDark = 1/256 * (75, 30, 135);  colGauss = cGreen;
+  colSlP = cMiddleBlue;  colSlPhi = cMiddleBlue;  colTeXCoin = cMiddleBlue;  colCoinCard = cMiddleBlue;
+  colSlN = cGraphite;  colNeutral = cGraphite;
+  if(dark == 1, (
+    thBg = 1/256 * (18, 20, 23);  thPaper = thBg;  thOnCol = thBg;
+    thFg = (.92, .93, .94);  thMuted = (.68, .70, .73);
+    thCircLine = (.8, .8, .8);  thBlue = mixW(cSFBBlue, .4);  thOrange = mixW(cSFBOrangeText, .1);
+    thCardA = .12;  thBandA = .22;
+    colUp = mixW(cBrightRed, .22);  colDown = mixW(cBrightBlue, .25);  colDist = cSFBOrange;
+    colMs = mixW(1/256 * (125, 75, 185), .45);  colMsDark = mixW(1/256 * (125, 75, 185), .75);  colGauss = mixW(cGreen, .4);
+    colSlP = mixW(cMiddleBlue, .45);  colSlPhi = colSlP;  colTeXCoin = colSlP;  colCoinCard = colSlP;
+    colSlN = thMuted;  colNeutral = thMuted;
+  ));
 );
-;
-
-//parameter
-maxmaxSteps = 100;
-maxSteps= maxmaxSteps;
-
-//particle = [1+0*i, 0+0*i];
-particle = [1/sqrt(2), i/sqrt(2)];
-
-//coin
-coinP = .5;
-coinRot = 0;
-
-// Toggle: normalize bars so the tallest reaches the full height
-distNormalizeToMax = true;   // set false for physically linear heights
-
-gauss = false;
-;
-//model
-N = 2*maxSteps + 1;
-mid = maxSteps+1;
-
-up(particle) := particle_1;
-down(particle) := particle_2;
-setUp(particle, newUp) := [newUp, down(particle)];
-setDown(particle, newDown) := [up(particle), newDown];
-
-upAngle(particle) := arctan2(up(particle));
-downAngle(particle) := arctan2(down(particle));
-
-upAbs(particle) := abs(up(particle));
-downAbs(particle) := abs(down(particle));
+setTheme(0);
+// apply the effective mode (called every frame; JS only on a change: page background, link panel style)
+themeApply() := (
+  regional(d);
+  d = if(themeUser >= 0, themeUser, sysDark);
+  if(d != themeCur, (setTheme(d); javascript("qwTheme(" + d + ")")));
+);
+// browser tab title follows the language (JS only on a change)
+titleLang = "";
+titleApply() := (
+  if(lang != titleLang, (titleLang = lang; javascript("document.title='" + tr("title") + "'")));
+);
 
 
-// phase rotation
-cis(phi) := cos(phi) + i*sin(phi);
+// =====================================================================
+// 3  LAYOUT CONSTANTS
+// The port fills the browser window. All sizes are in world units; one unit is
+// "kd" pixels, where kd is chosen by layPick() (section 8) so that the cards fit.
+// Text sizes: fs(n) = n * layKs, layKs = pixels-per-unit / layKRef.
+//
+// ARRANGEMENT (chosen by layPick, a short decision chain, see there): the 4 base cards (1 coin sliders,
+// 2 coin matrix + presets, 3 start state, 4 walk settings) and card 5 (measurement, always reserved) are arranged as
+//   A: 2x2 beside the walk (left), measurement card below them in the same column   [2,2,1,2]
+//   B: 4 cards in a row below the walk, measurement card as a full-width row under them   [4,1,0,0]
+//   C: 2x2 below the walk, measurement card as a row under them   [2,2,0,0]
+//   T1: tabs below the walk (one card at a time)   T2: tabs beside the walk   [1,1,0,3] / [1,1,1,3]
+// =====================================================================
+cdCW = 4.7;             // card width (minimum width in flow layouts)
+cdCH = 4.8;             // card height
+cdAnimMaxN = 10;        // largest N in animation mode (all transitions are animated at once; larger N gets too small to read)
+cdGap = 0.25;           // gap between cards
+cdPad = 0.3;            // inner padding of a card
+cdMg = 0.4;             // outer margin of the window
+cdTitleH = 1.3;         // height of the title band above the cards
+cdWalkTop = 2.0;        // top of the walk area below the top edge (leaves room for the histogram legend)
+cdWalkGap = 0.3;        // gap between cards and walk
+cdWalkMinW = 8.0;       // minimum walk width
+cdWalkMinH = 6.0;       // minimum walk height
+cdChkW = 1.5;           // room left of the walk for the measurement boxes / probability axis labels (always reserved)
+cdChkW1 = 0.9;          // width of the single checkbox column (one kind on)
+cdRm = 0.6;             // right margin next to the walk (walk below the cards)
+cdHasMs = 1;            // 1: measurement card exists (always reserved)
+cdFootH = 1.0;          // footer band height (upper bound)
+cdWalkMaxAsp = 3.2;     // > 0: walk width at most this multiple of its height (0 = no limit); also used to rate the walk area
+cdCardMaxW = 5.4;       // flow cards stretch to fill the width, up to this width
+cdMinKd = 28;           // lowest allowed pixels per unit (hard limit)
+cdKdMax = 90;           // highest pixels per unit
+cdMsH = 3.9;            // measurement card, full-width row under a wide block: 3 columns
+cdMs1H = 7.6;           // measurement card with one column (sections stacked), height (tab layout, narrow card)
+cdMs3W = 12.5;          // measurement card at least this wide: 3 columns; below: 2 columns
+cdMs2W = 9.0;           // measurement card at least this wide: 2 columns; below: 1 column
+cdMsBelowH = 5.4;       // 2x2 beside: measurement card below the 2x2 block (same width), minimal height
+cdMsBelowMaxH = 8.0;    // 2x2 beside: maximal height of that card (spare height centres the left column vertically)
+cdChipH  = 0.52;        // height of a chip
+cdTabH = 1.0;           // tab layout (phones): height of the tab bar incl. gap to the card
+cdTabKd = 44;           // an arrangement with cards is used only if it reaches at least this scale (px per unit); else tabs
+cdTabH2 = 1.6;          // tab layout beside the walk: height of the two-row tab bar incl. gap to the card
+cdTabMaxPx = 600;       // tabs whenever the window is narrower than this many CSS pixels (more room for the walk)
+cdTabWalkW = 5.0;       // tab layout: minimum walk width (replaces cdWalkMinW)
+cdTouchPx = 28;         // minimal click target height in pixels (hit areas are padded to this)
+cdTouchMin = 44;        // touch devices: minimal click target width and height in CSS pixels
+cdTouchChipPx = 40;     // touch devices, tab layout: chips grow towards this height in pixels (as far as the card has room)
+cdTouchPt = 1.8;        // touch devices: handle (point) size factor
+layKRef  = 62;          // pixels per world unit the font sizes were designed for
+layL     = 3.6;         // slider rail length
 
+// arrangements [columns, rows, place (0 below / 1 beside), measurement card (2 below the block / 0 row under it / 3 tabs)]
+// index: 1 = A, 2 = B, 3 = C, 4 = T1 (tabs below), 5 = T2 (tabs beside)
+layCands = [[2,2,1,2], [4,1,0,0], [2,2,0,0], [1,1,0,3], [1,1,1,3]];
+
+// font size hierarchy (px at layKRef px/unit): title 30 > card title 15 > label 12 > text 11 > ticks 10
+fsT = 30; fsCard = 15; fsLab = 12; fsTxt = 11; fsTick = 10;
+
+// layout results (written by computeLayout, read by drawing and UI code)
+layKs    = 1;                                                   // font scale
+layCard  = [[0,0,4.7,4.8],[0,0,4.7,4.8],[0,0,4.7,4.8],[0,0,4.7,4.8],[0,0,4.7,4.8]];   // [x left, y top, width, height] per card
+layCardP = [];                                                  // previous card rectangles (to detect changes)
+layOk = true;                                                   // false while the canvas has no usable size
+layWalkBL = [1, -13];  layWalkTR = [10, -2];                    // walk rectangle
+layFootX = 10;  layFootY = -14;  layFootLines = 2;              // footer anchor and number of text lines
+layPY = -3;  layPhY = -4;  layICx = 2;  layICy = -4;  layNy = -2;  layQy = -3;   // handle anchors
+layXlp = 0; layXrp = -1; layYtp = 0; layYbp = -1;               // previous visible bounds
+layChanged = true;                                              // layout changed: re-place the handles
+layTabs  = false;                                               // true: tab layout (one card at a time)
+layTab   = 1;  layTabP = 1;                                     // tab layout: shown card 1..5 (5 = measurement / animation)
+layTabR  = [0, 0, 1, 1];                                        // tab bar rectangle [x left, y bottom, width, height]
+layTabRows = 1;                                                 // tab bar rows (1 below the walk, 2 beside it: 3 + 2 chips)
+cardShown(k) := (!layTabs) % (layTab == k);
+
+fs(n) := n*layKs;       // font size scaled to the current resolution
+
+
+// =====================================================================
+// 4  MODEL: quantum coin and walk step
+// A site holds the two-component amplitude [up, down] = [|←⟩ part (moves left), |→⟩ part (moves right)].
+// One step = coin U on every site, then conditional shift: up -> site j-1, down -> site j+1.
+// =====================================================================
+maxmaxSteps = 100;       // upper limit of the N slider (arrays are sized for it)
+maxSteps = maxmaxSteps;  // current number of steps N (set by the slider)
+mid = maxSteps + 1;      // index of site 0 in the global lists (2*maxmaxSteps + 1 sites)
+
+particle = [1/sqrt(2), i/sqrt(2)];     // start state [up, down] (set by the start-state circle)
+coinP = .5;                            // coin bias p (set by its slider)
+coinRot = 0;                           // coin phase phi (set by its slider)
+
+distNormalizeToMax = true;   // true: tallest bar reaches the full height; false: physically linear heights
+
+up(state) := state_1;
+down(state) := state_2;
+setUp(state, newUp) := [newUp, down(state)];
+setDown(state, newDown) := [up(state), newDown];
+
+cis(phi) := cos(phi) + i*sin(phi);       // e^{i phi}
+
+// coin matrix U(p, phi): unitary, real for phi = 0, pi
 coinGen(p, phi) := [
   [ sqrt(p),              cis(phi)*sqrt(1-p) ],
   [ cis(-phi)*sqrt(1-p), -sqrt(p)            ]
@@ -204,472 +342,932 @@ coinGen(p, phi) := [
 
 coin = coinGen(coinP, coinRot);
 
-initState = apply(1..N,[0+0*i, 0+0*i]);
+// walk state: one [up, down] pair per site; the particle starts at site 0
+initState = apply(1..(2*maxSteps + 1), [0+0*i, 0+0*i]);
 initState_mid = particle;
 
-
-;
-//control
-walkstep (state) := (
-  afterCoin = apply(state,coin*#);
-
-  N = length(state);  
-  nextstate = apply(1..N, [0+0*i,0+0*i]);
-  forall(1..N, j, (
-      L := up(afterCoin_j);
-      R := down(afterCoin_j);
-      if(j>1, nextstate_(j-1) = setUp(nextstate_(j-1), up(nextstate_(j-1)) + L));
-      if(j<N, nextstate_(j+1) = setDown(nextstate_(j+1), down(nextstate_(j+1)) + R));
-    )
-  );
-
-  nextstate;
+// one step on a list of sites: coin on every site, then shift (up to the left neighbour, down to the right one)
+walkstep(state) := (
+  regional(afterCoin, n, nextstate, j, toLeft, toRight);
+  afterCoin = apply(state, coin*#);
+  n = length(state);
+  nextstate = apply(1..n, [0+0*i, 0+0*i]);
+  forall(1..n, j, (
+    toLeft = up(afterCoin_j);
+    toRight = down(afterCoin_j);
+    if(j > 1, nextstate_(j-1) = setUp(nextstate_(j-1), up(nextstate_(j-1)) + toLeft));
+    if(j < n, nextstate_(j+1) = setDown(nextstate_(j+1), down(nextstate_(j+1)) + toRight));
+  ));
+  nextstate
 );
-;
 
-//drawDist
+// site probabilities |up|^2 + |down|^2
 probsOf(state) := apply(1..length(state), j, abs(state_j_1)^2 + abs(state_j_2)^2);
+
 maxOf(L) := (
+  regional(n, m, k);
   n = length(L);
   if(n == 0, 0,
     (m = L_1; forall(2..n, k, if(L_k > m, m = L_k)); m)
   )
 );
 
-// simple nCk without overflow
+// binomial coefficient without overflow
 comb(n, k) := (
+  regional(kq, pq, iq);
   if(k < 0 % k > n, 0,
-    (kk = min(k, n-k);
-     p = 1;
-     if(kk > 0, forall(1..kk, i, p = p * (n - kk + i) / i));
-     p)
+    (kq = min(k, n-k);
+     pq = 1;
+     if(kq > 0, forall(1..kq, iq, pq = pq * (n - kq + iq) / iq));
+     pq)
   )
 );
 
-drawDist(state, center, size) := (
-  // early exit if nothing to draw
-  if(length(state) == 0, (), (
-    P = probsOf(state);
-    N = length(P);
-    if(N == 0, ());                      // no bars -> nothing to do
-
-    cx = center_1; cy = center_2;
-    w  = size_1;   h  = size_2;
-
-    // scale: either linear (sc=1) or normalized so max(P)*sc = 1
-    pmax = maxOf(P);
-    sc   = if(distNormalizeToMax & (pmax > 0), 1/pmax, 1);
-
-    x0 = cx - w/2;  y0 = cy;
-    bw = w / N;
-
-    // optional axis
-    draw([x0, y0], [x0 + w, y0], color->cAnthracite);
+// a^e with 0^0 = 1
+galtonPow(a, e) := if(e == 0, 1, a^e);
 
 
-    pad = 0.05*bw;
-    forall(1..N, j, (
-      xL = x0 + (j-1)*bw + pad;
-      xR = x0 + j*bw       - pad;
-      bh = (P_j * sc) * h;
-      if(bh > 0,
-        fillpoly([[xL,y0],[xR,y0],[xR,y0+bh],[xL,y0+bh]],
-                 color->colDist, alpha->1)
-      );
-    ));
+// ---- animation mode: all step transitions (rows 0..N-1 -> 1..N) move at once; row N appears only through them ----
+// Phases of one transition at progress t in [0,1] (see stateTransition):
+//   0..t1 scale/rotate the two arrows by the coin entries; t1..t2 parallelogram; t2..t3 the sum grows, the others fade; 0..1 shift
+animT1 = 1/3;  animT2 = 2/3;  animT3 = 5/6;
+animOn = false;      // animation mode (chip in the Walk card)
+animrun = true;      // false: paused by the chip
+animLength = 1;      // seconds per step, set by the speed slider (stSp)
+waittime = 0.3;      // hold time at both ends of a transition
+animT = 0;           // current progress of the transition
+animTime = 0;        // animation clock; stands still while paused
+animPrev = 0;        // seconds() of the previous frame
+animNSaved = 0;      // N before entering animation mode if it had to be clamped (0 = nothing to restore)
+loopOn = false;      // state of the CindyJS animation loop (see loopSync)
 
-    
-    // ---------- optional: classical binomial overlay in the background ----------
-    if(gauss,
+// progress t in [0,1]: hold at 0 for waittime, ramp over animLength seconds, hold at 1, repeat
+updateT() := (
+  regional(al, wt, period, ph);
+  al = max(1e-6, animLength);
+  wt = max(0, waittime);
+  period = al + 2*wt;
+  ph = mod(animTime, period);
+  if(ph < wt, 0, if(ph < wt + al, (ph - wt)/al, 1))
+);
+animTick() := (
+  regional(now, k);
+  now = seconds();
+  animLength = 12*(0.8/12)^stSp;                   // exponential speed range: 12 s (slow) ... 0.8 s (fast) per step
+  waittime = 0.15*animLength;                      // hold time scales with the speed
+  if(animOn & animrun, animTime = animTime + min(0.1, now - animPrev));
+  animPrev = now;
+  animT = updateT();
+);
+// ONE decision whether the CindyJS loop (playanimation) runs: animation, queued runs, exact-mean computation.
+// pauseanimation(), not stopanimation(): stop would restore the saved geometry (sliders jump back).
+// Called at the end of every frame and after state changes; the others only set the state flags.
+loopWanted() := (animOn & animrun & maxSteps > 0) % msPending > 0 % msEnsBusy;
+loopSync() := (
+  regional(w);
+  w = loopWanted();
+  if(w != loopOn, (loopOn = w; if(w, playanimation(), pauseanimation())));
+);
+// N limit of the current mode and clamping when entering / leaving animation mode
+nLimit() := if(animOn, cdAnimMaxN, maxmaxSteps);
+animSetMode(on) := (
+  if(on & !animOn, (
+    animOn = true;  animrun = true;  animTime = 0;
+    if(stN > cdAnimMaxN, (animNSaved = stN; stN = cdAnimMaxN; maxSteps = stN));
+  ));
+  if(!on & animOn, (
+    animOn = false;
+    if(animNSaved > 0 & stN == cdAnimMaxN, (stN = animNSaved; maxSteps = stN));    // restore unless N was changed meanwhile
+    animNSaved = 0;
+  ));
+  msSync();
+  layRemap();
+);
+
+
+// =====================================================================
+// 5  MEASUREMENT (position and/or coin measurements in selectable rows)
+// msRows_k = 1: the position is measured after step k (row k of the board).
+// msCoin_(k+1) = 1: the coin (qubit) is measured in row k (row 0: before step 1).
+// Measuring = projecting the state onto the outcome and renormalising (Lueders rule); for the
+// ensemble average over many runs this is dephasing: the measured degrees of freedom lose their
+// off-diagonal density-matrix entries.
+// msU / msU2: fixed uniform random numbers of the displayed single run (inverse CDF), new ones
+// only by "re-roll". msCnt: collected final positions (global site index).
+// =====================================================================
+msOn = false;       // any measurement kind on
+msPosOn = false;    // position measurement toggle
+msCoinOn = false;   // coin measurement toggle
+msExOn = false;     // show the exact ensemble mean (violet); the density-matrix computation runs only while on
+msMiniOn = false;   // per-row mini histograms right of the board
+msRowsU = apply(1..maxmaxSteps, k, 0);              // stored user flags (kept while a kind is switched off)
+msCoinU = apply(1..(maxmaxSteps + 1), k, 0);
+msRows = apply(1..maxmaxSteps, k, 0);               // EFFECTIVE flags used by all computations (= U if the kind is on, else 0)
+msCoin = apply(1..(maxmaxSteps + 1), k, 0);         // effective coin flags
+msU = apply(1..maxmaxSteps, k, random());           // random numbers for the position outcomes of the single run
+msU2 = apply(1..(maxmaxSteps + 1), k, random());    // random numbers for the coin outcomes of the single run
+msZ = apply(1..(2*maxmaxSteps + 3), k, 0);          // zeros, for cheap slicing
+msCnt = apply(1..(2*maxmaxSteps + 1), k, 0);        // collected runs: count per global site
+msN = 0;            // number of collected runs
+msPending = 0;      // runs still queued
+msKeyPrev = 1;      // physics parameters of the collected data (see msUpdate)
+msPre = [];         // per row k (0..N): site probabilities of the single run BEFORE the measurements of that row
+msCoinOut = [];      // coin outcome per row 0..N of the single run (1 = |<-, 2 = |->, 0 = not measured)
+msOut = [];         // outcome site (global index) per row of the single run, 0 = not measured
+msFq = [];          // relative frequencies for the visible slice (set while drawing)
+
+msSync() := (
+  msOn = (msPosOn % msCoinOn) & !animOn;
+  if(!msOn, (msPending = 0; msEnsBusy = false));
+);
+// effective flags: a disabled kind is ignored by the single run, the exact ensemble and collecting,
+// but its stored flags (msRowsU / msCoinU) survive and come back when it is re-enabled
+msEffective() := (
+  msRows = apply(1..maxmaxSteps, k, if(msPosOn, msRowsU_k, 0));
+  msCoin = apply(1..(maxmaxSteps + 1), k, if(msCoinOn, msCoinU_k, 0));
+);
+
+// ---- flag helpers ----
+msRowsOn() := if(maxSteps > 0, sum(apply(1..maxSteps, k, msRows_k)), 0);
+msCoinAny() := sum(apply(1..(maxSteps + 1), k, msCoin_k)) > 0;
+msAnyMeas() := (msRowsOn() > 0) % msCoinAny();
+// coin measurement flag of row k (row 0: before step 1); independent of the position measurement
+msCoinFlag(k) := msCoin_(k+1) == 1;
+// greyed out: position of this row is measured AND the coin is already fixed by it
+// (row 1, or the position of row k-1 was measured too) -> the coin projection is trivial
+msGreyed(k) := if(k <= 0, false, if(k == 1, msRows_1 == 1, msRows_k == 1 & msRows_(k-1) == 1));
+msFixAny() := (
+  regional(k, f);
+  f = false;
+  if(maxSteps > 0, forall(1..maxSteps, k, if(msGreyed(k), f = true)));
+  f
+);
+
+// ---- sampling ----
+// index of the sampled site (inverse CDF) for probabilities P (list) and u in [0,1)
+msPick(P, u, lo, hi) := (
+  regional(thr, c, j, last, jj);
+  thr = u*sum(P_(lo..hi));
+  c = 0; j = 0; last = lo;
+  forall(lo..hi, jj, (
+    c = c + P_jj;
+    if(P_jj > 1e-15, (last = jj; if(j == 0 & c > thr, j = jj)));
+  ));
+  if(j == 0, last, j)
+);
+
+// single run: collapse a full state (list of [up,down]) at a sampled site; returns [state, site]
+msMeasureState(st, u) := (
+  regional(P, n0, j, sq, res);
+  n0 = length(st);
+  P = probsOf(st);
+  j = msPick(P, u, 1, n0);
+  sq = sqrt(P_j);
+  res = apply(1..n0, jj, if(jj == j, [st_j_1/sq, st_j_2/sq], [0+0*i, 0+0*i]));
+  [res, j]
+);
+
+// outcome (1 = |←⟩, 2 = |→⟩) of a global coin measurement on amplitude lists a (up) and b (down)
+msCoinPickArr(a, b) := (
+  regional(PL, PR);
+  PL = sum(apply(a, z, abs(z)^2));  PR = sum(apply(b, z, abs(z)^2));
+  if(PR < 1e-30, 1, if(PL < 1e-30, 2, if(random()*(PL + PR) < PL, 1, 2)))
+);
+
+// global Lueders projection of a full state (list of [up, down]) onto |←⟩ (1) or |→⟩ (2); returns [state, outcome]
+msCoinGlobal(st, u) := (
+  regional(PL, PR, o);
+  PL = sum(apply(st, z, abs(z_1)^2));  PR = sum(apply(st, z, abs(z_2)^2));
+  o = if(PR < 1e-30, 1, if(PL < 1e-30, 2, if(u*(PL + PR) < PL, 1, 2)));
+  [if(o == 1, apply(st, z, [z_1/sqrt(PL), 0+0*i]), apply(st, z, [0+0*i, z_2/sqrt(PR)])), o]
+);
+
+// ---- the displayed single run (called every frame): fills walk (all rows), msOut and msPre ----
+computeSingleRun() := (
+  regional(st, res, k, j, jc);
+  st = initState;
+  msPre = [];
+  msCoinOut = [0];
+  if(msOn & msMiniOn, msPre = [probsOf(st)]);      // row 0: before the coin measurement
+  if(msOn & msCoin_1 == 1, (res = msCoinGlobal(st, msU2_1); st = res_1; msCoinOut = [res_2]));
+  walk = [st];
+  msOut = [];
+  repeat(maxSteps, k, (
+    st = walkstep(walk_(-1));
+    j = 0;  jc = 0;
+    if(msOn & msMiniOn, msPre = msPre ++ [probsOf(st)]);   // distribution the row's measurements sample from
+    if(msOn,
       (
-        // infer step count s from visible slice length N ≈ 2s+1
-        s  = round((N - 1) / 2);
-        m  = 1 + floor((N - 1)/2);     // local middle index of this slice
-        pC = 0.5;                       // classical coin bias (change if desired)
-
-        // draw binomial bars first (background)
-        forall(1..N, j, (
-          d = j - m;                    // displacement from center
-          // parity + bounds: only positions with same parity as s are allowed
-          if(abs(d) <= s & (mod(abs(d),2) == mod(s,2)),
-            (
-              k  = (s + d)/2;           // # of right steps
-              pg = comb(s, k) * pC^k * (1 - pC)^(s - k);  // binomial pmf
-              bhg = (pg * sc) * h;      // scale like quantum bars
-              if(bhg > 0,
-                (
-                  xL = x0 + (j-1)*bw + pad+.3*bw;
-                  xR = x0 + j*bw       - pad-.3*bw;
-                  fillpoly([[xL,y0],[xR,y0],[xR,y0+bhg],[xL,y0+bhg]],
-                           color->colGauss, alpha->1);
-                )
-              );
-            )
-          );
-        ));
+        if(msRows_k == 1, (res = msMeasureState(st, msU_k); st = res_1; j = res_2));
+        // greyed row: the position measurement already fixed the coin; its outcome is the surviving component
+        if(msCoinOn & msGreyed(k) & j > 0, jc = if(abs(st_j_1)^2 >= abs(st_j_2)^2, 1, 2));
+        // coin measurement (global projection), commutes with the position measurement
+        if(msCoin_(k+1) == 1, (res = msCoinGlobal(st, msU2_(k+1)); st = res_1; jc = res_2));
       )
     );
-
-
-
-    if(distNormalizeToMax,
-      drawtext([x0 + w, y0+1.05*h], tr("normalized") + "
-max p ≈ " + format(pmax, 4),
-               align->"left", size->12, color -> cSFBOrangeText)
-    );
+    msCoinOut = msCoinOut ++ [jc];
+    walk = walk ++ [st];
+    msOut = msOut ++ [j];
   ));
 );
 
-
-//phaseplot
-// --- helpers: minimal & safe ---
-// local middle index from the state's length
-midOf(state) := 1 + floor((length(state) - 1) / 2);
-
-// reachable range [jL, jR] for step s using local mid
-reachableRange(state, s) := (
-  N = length(state);
-  m = midOf(state);
-  jL = max(1, m - s);
-  jR = min(N, m + s);
-  [jL, jR]
+// ---- collecting: one complete run on the reachable slice only, fresh random numbers; counts the final site ----
+msOneRun() := (
+  regional(a, b, a1, b1, c11, c12, c21, c22, m, P, lo, hi, j, sq, aj, bj, s, jj, o);
+  c11 = coin_1_1; c12 = coin_1_2; c21 = coin_2_1; c22 = coin_2_2;
+  a = [particle_1]; b = [particle_2];
+  if(msCoin_1 == 1, (o = msCoinPickArr(a, b); if(o == 1, b_1 = 0, a_1 = 0)));
+  lo = 1; hi = 1;
+  repeat(maxSteps, s, (
+    a1 = c11*a + c12*b;  b1 = c21*a + c22*b;      // coin on all sites at once (vector arithmetic)
+    a = a1 ++ [0, 0];    b = [0, 0] ++ b1;        // shift: up stays in place, down moves one slot (list grows by 2)
+    hi = hi + 2;
+    if(msRows_s == 1, (
+      P = apply(lo..hi, jj, abs(a_jj)^2 + abs(b_jj)^2);
+      j = lo - 1 + msPick(P, random(), 1, length(P));
+      aj = a_j; bj = b_j; sq = sqrt(P_(j - lo + 1));
+      m = length(a);
+      a = msZ_(1..m); b = msZ_(1..m);
+      a_j = aj/sq; b_j = bj/sq;
+      lo = j; hi = j;
+    ));
+    if(msCoin_(s+1) == 1, (
+      o = msCoinPickArr(a, b);
+      m = length(a);
+      if(o == 1, b = msZ_(1..m), a = msZ_(1..m));
+    ));
+  ));
+  P = apply(lo..hi, jj, abs(a_jj)^2 + abs(b_jj)^2);
+  j = lo - 1 + msPick(P, random(), 1, length(P));
+  j = mid - maxSteps - 1 + j;
+  msCnt_j = msCnt_j + 1;
 );
 
-// cut to reachable slice; never returns empty (falls back to the real middle site)
-cutStateToReachable(state, s) := (
-  R  = reachableRange(state, s);
-  jL = R_1; jR = R_2;
-  if(jL > jR,
-     [ state_(midOf(state)) ],
-     apply(jL..jR, j, state_j)
-  )
+// ---------------------------------------------------------------------
+// EXACT ENSEMBLE DISTRIBUTION (no sampling): density-matrix propagation.
+// rho is stored as four M x M blocks R_cc' (c, c' in {L = |←⟩ (moves j-1), R = |→⟩ (moves j+1)}),
+// M = s+1 reachable sites of step s (only sites of the right parity: x = -s + 2m, m = 0..s).
+//   coin step : R'_cc' = sum_{d,d'} U_cd R_dd' conj(U_c'd')      (scalar * matrix, native)
+//   shift     : L: m -> m, R: m -> m+1 (pad zero rows / columns, matrix grows to (s+2) x (s+2))
+//   position measurement (ensemble average): every block -> its diagonal (dephasing in position)
+//   coin measurement (ensemble average): R_LR = R_RL = 0 (dephasing in the coin); row 0: before the first step
+//   result: P_m = diag(R_LL) + diag(R_RR).
+// The loop runs a few steps per frame (time budget) while msEnsBusy; the previous msEns stays visible.
+// ---------------------------------------------------------------------
+msEns = [];            // exact site probabilities (global list), [] = not available
+msEnsStale = true;     // parameters changed: recompute when needed
+msEnsBusy = false;     // computation in progress
+msEgA = [[1]]; msEgB = [[0]]; msEgC = [[0]]; msEgD = [[0]];   // R_LL, R_LR, R_RL, R_RR
+msEgU = [[1,0],[0,1]];  // coin used
+msEgS = 0;             // steps done
+msEgN = 0;             // target number of steps
+
+msEgStart() := (
+  regional(pa, pb);
+  pa = particle_1; pb = particle_2;
+  msEgN = maxSteps;  msEgU = coin;
+  msEgA = [[pa*conjugate(pa)]]; msEgB = [[pa*conjugate(pb)]];     // rho = |psi><psi|
+  msEgC = [[pb*conjugate(pa)]]; msEgD = [[pb*conjugate(pb)]];
+  if(msCoin_1 == 1, (msEgB = [[0]]; msEgC = [[0]]));
+  msEgS = 0;
+  msEnsBusy = true;
 );
-phase(z) := if(abs(z)==0, 0, arctan2(re(z), im(z)));
 
-arrowAlpha = 1;
-thickK = 4;
+// pad one zero row (front or back) and one zero column (front or back) to an M x M matrix
+msEgShift(Mat, rf, cf, M) := (
+  regional(zr, X);
+  zr = msZ_(1..M);
+  X = if(rf, [zr] ++ Mat, Mat ++ [zr]);
+  if(cf, apply(X, r, [0] ++ r), apply(X, r, r ++ [0]))
+);
+// diagonal part of an M x M matrix
+msEgDiag(Mat, M) := apply(1..M, ii,
+  (if(ii > 1, msZ_(1..(ii-1)), []) ++ [Mat_ii_ii] ++ (if(ii < M, msZ_(1..(M-ii)), []))));
 
-drawArrow(c, len, phi, col, a, sz) := (
-  v = [cos(phi), sin(phi)];
-  p2 = [c_1 + len*v_1, c_2 + len*v_2];
-  draw(c, p2, color->col, alpha->a, size->sz);
+msEgStep() := (
+  regional(M, u00, u01, u10, u11, v00, v01, v10, v11, TLL, TRL, TLR, TRR, nA, nB, nC, nD, kk);
+  M = msEgS + 1;
+  u00 = msEgU_1_1; u01 = msEgU_1_2; u10 = msEgU_2_1; u11 = msEgU_2_2;
+  v00 = conjugate(u00); v01 = conjugate(u01); v10 = conjugate(u10); v11 = conjugate(u11);
+  // rows: T_cd' = sum_d U_cd R_dd'
+  TLL = u00*msEgA + u01*msEgC;  TRL = u10*msEgA + u11*msEgC;
+  TLR = u00*msEgB + u01*msEgD;  TRR = u10*msEgB + u11*msEgD;
+  // columns: R'_cc' = sum_d' T_cd' conj(U_c'd')
+  nA = v00*TLL + v01*TLR;  nB = v10*TLL + v11*TLR;
+  nC = v00*TRL + v01*TRR;  nD = v10*TRL + v11*TRR;
+  // shift (rows by c, columns by c'): L stays, R moves one slot
+  msEgA = msEgShift(nA, false, false, M);  msEgB = msEgShift(nB, false, true, M);
+  msEgC = msEgShift(nC, true, false, M);   msEgD = msEgShift(nD, true, true, M);
+  msEgS = msEgS + 1;  kk = msEgS;  M = M + 1;
+  if(msRows_kk == 1, (
+    msEgA = msEgDiag(msEgA, M); msEgB = msEgDiag(msEgB, M);
+    msEgC = msEgDiag(msEgC, M); msEgD = msEgDiag(msEgD, M);
+  ));
+  if(msCoin_(kk+1) == 1, (
+    msEgB = apply(1..M, ii, msZ_(1..M));  msEgC = apply(1..M, ii, msZ_(1..M));
+  ));
+);
+
+msEgFinish() := (
+  regional(Pc, n1);
+  n1 = msEgN + 1;
+  Pc = apply(1..n1, m, re(msEgA_m_m + msEgD_m_m));
+  msEns = apply(1..(2*msEgN + 1), k, if(mod(k, 2) == 1, Pc_((k+1)/2), 0));
+  msEnsBusy = false;
+);
+
+// called every frame from msUpdate
+msEgWork() := (
+  regional(t0);
+  if(msEnsStale & msExOn, (
+    msEnsStale = false;
+    if(msAnyMeas(), msEgStart(), (msEns = []; msEnsBusy = false));
+  ));
+  // switched off while computing: drop the unfinished result (recomputed when switched on again)
+  if(!msExOn & msEnsBusy, (
+    msEnsBusy = false; msEns = []; msEnsStale = true;
+  ));
+  if(msEnsBusy, (
+    t0 = seconds();
+    if(msEgS < msEgN, (
+      msEgStep();
+      while(msEgS < msEgN & seconds() - t0 < 0.025, msEgStep());
+    ));
+    if(msEgS >= msEgN, msEgFinish());
+  ));
+);
+
+// ---- collecting and cache invalidation (called every frame) ----
+// reset of the collected data when the physics changes; incremental collecting within a time budget
+msUpdate() := (
+  regional(t0, key);
+  if(msOn,
+    (
+      // values are rounded (1e-9): the slider / knob re-projection jitters in the last bits every frame,
+      // which would otherwise look like a parameter change and reset the collected data constantly
+      key = [round(coinP*1e9), round(coinRot*1e9), maxSteps,
+             round(re(particle_1)*1e9), round(im(particle_1)*1e9), round(re(particle_2)*1e9), round(im(particle_2)*1e9),
+             if(maxSteps > 0, apply(1..maxSteps, k, msRows_k), []),
+             apply(1..(maxSteps + 1), k, msCoinFlag(k - 1))];
+      if(key != msKeyPrev, (
+        msKeyPrev = key;
+        msCnt = apply(1..(2*maxmaxSteps + 1), k, 0);
+        msN = 0;
+        msEnsStale = true;
+        if(!msExOn, msEns = []);        // cached mean no longer valid
+        msPending = 0;
+      ));
+      msEgWork();
+      if(msPending > 0, (
+        t0 = seconds();
+        msOneRun(); msN = msN + 1; msPending = msPending - 1;
+        while(msPending > 0 & seconds() - t0 < 0.03, (
+          msOneRun(); msN = msN + 1; msPending = msPending - 1;
+        ));
+      ));
+    ),
+    (msKeyPrev = 1; msEns = []; msEnsStale = true; msEnsBusy = false)
+  );
+);
+
+// queue n more runs; the animation loop (draw every frame) works them off
+msQueue(n) := (
+  msPending = min(5000, msPending + n);
+);
+
+
+// =====================================================================
+// 6  DRAWING: board of sites, histograms, mini histograms
+// =====================================================================
+
+// ---- one site: circle with two arrows (length = |amplitude|, direction = phase, red = up, blue = down) ----
+ampAlpha(L) := L^0.6;     // weak amplitudes are drawn fainter
+
+drawArrow(c, len, phi, col, a, sz) := draw(c, c + len*[cos(phi), sin(phi)], color->col, alpha->a, size->sz);
+
+// arrow of one amplitude z (nothing for vanishing amplitudes)
+drawAmplitude(center, r, z, col) := (
+  regional(L);
+  L = abs(z);
+  // CindyScript: arctan2(x, y) = angle of the point (x, y)
+  if(L > 1e-6, drawArrow(center, r*L, arctan2(re(z), im(z)), col, ampAlpha(L), 3.0));
+);
+
+drawSiteCircle(center, r) := (
+  fillcircle(center, r, color->cLightGray, alpha->.1);
+  drawcircle(center, r, color->thCircLine, alpha->.5);
 );
 
 drawSite(center, r, s) := (
-  // circle
-  fillcircle(center, r, color->cLightGray, alpha->.1);
-  drawcircle(center, r, color->cDarkGray, alpha->.5);
-
-  // konstante Strichdicke
-  arrowSizePx = 3.0;
-  epsAmp = 1e-6;
-  
-  alphaGamma = .6;
-  ampAlpha(L) := L^alphaGamma;
-
-
-  // up (red)
-  Lu   = abs(s_1);
-  phiu = if(Lu==0, 0, arctan2(re(s_1), im(s_1)));
-  if(Lu > epsAmp,
-    drawArrow(center, r*Lu, phiu,  colUp,   ampAlpha(Lu), arrowSizePx);
-  );
-
-  // down (blue)
-  Ld   = abs(s_2);
-  phid = if(Ld==0, 0, arctan2(re(s_2), im(s_2)));
-  if(Ld > epsAmp,
-    drawArrow(center, r*Ld, phid,  colDown, ampAlpha(Ld), arrowSizePx);
-  );
-  
+  drawSiteCircle(center, r);
+  drawAmplitude(center, r, s_1, colUp);
+  drawAmplitude(center, r, s_2, colDown);
 );
 
-// reachable after stepCount steps?  |colindex-mid ≤ stepCount  and  (|colindex-mid| + stepCount) even
+// ---- animation of one step (animation mode) ----
+// linear map of x from [a,b] to [c,d], clamped at the ends
+mapValueF(x, a, b, c, d) := c + (d - c)*min(1, max(0, (x - a)/(b - a)));
+vec(z) := [re(z), im(z)];      // complex number -> plane vector
+
+// Transition of a site (state = [a, b]) to a neighbouring site at progress t. The new amplitude is
+// sU*e^{i aU}*a + sD*e^{i aD}*b (one row of the coin matrix); phases: see section 4. The circle moves from startC to endC;
+// the coloured outline (sumCol) fades in while the left- and right-moving circles separate and fades out near the target.
+stateTransition(startC, endC, radius, state, t, sU, aU, sD, aD, sumCol) := (
+  regional(c, u, d, fade, grow, outlineAlpha, tSep);
+  c = startC + t*(endC - startC);
+  tSep = min(0.6, radius/max(1e-6, |endC - startC|));
+  u = mapValueF(t, 0, animT1, 1, sU)*cis(mapValueF(t, 0, animT1, 0, aU))*state_1;
+  d = mapValueF(t, 0, animT1, 1, sD)*cis(mapValueF(t, 0, animT1, 0, aD))*state_2;
+  fade = mapValueF(t, animT2, 1, 1, 0);
+  grow = mapValueF(t, animT1, animT2, 0, 1);
+  outlineAlpha = mapValueF(t, 0.5*tSep, tSep, 0, 1)*mapValueF(t, 0.75, 1, 1, 0);
+  drawSiteCircle(c, radius);
+  drawcircle(c, radius, color->sumCol, size->2.5, alpha->outlineAlpha);
+  draw(c, c + radius*vec(u), color->colUp,   size->3, alpha->fade);
+  draw(c, c + radius*vec(d), color->colDown, size->3, alpha->fade);
+  if(t > animT1,
+    draw(c + radius*vec(u), c + radius*vec(u) + radius*grow*vec(d), color->colDown, size->3, alpha->fade);
+    draw(c + radius*vec(d), c + radius*vec(d) + radius*grow*vec(u), color->colUp,   size->3, alpha->fade);
+  );
+  if(t > animT2,
+    draw(c, c + mapValueF(t, animT2, animT3, 0, 1)*radius*(vec(d) + vec(u)), color->sumCol, size->3);
+  );
+);
+// to the left neighbour: first row of U = (sqrt(p), e^{i phi} sqrt(1-p))
+stateTransitionUp(startC, endC, radius, coinbias, coinphase, state, t) :=
+  stateTransition(startC, endC, radius, state, t, sqrt(coinbias), 0, sqrt(1-coinbias), coinphase, colUp);
+// to the right neighbour: second row of U = (e^{-i phi} sqrt(1-p), -sqrt(p))
+stateTransitionDown(startC, endC, radius, coinbias, coinphase, state, t) :=
+  stateTransition(startC, endC, radius, state, t, sqrt(1-coinbias), -coinphase, -sqrt(coinbias), 0, colDown);
+
+// reachable after stepCount steps?  |colIndex-mid| <= stepCount  and  (|colIndex-mid| + stepCount) even
 isReachable(colIndex, stepCount) := (
+  regional(distFromMid);
   distFromMid = abs(colIndex - mid);
   (distFromMid <= stepCount) & (mod(distFromMid,2) == mod(stepCount,2))
 );
 
+// ---- measurement decorations of the board ----
+// both measurement kinds on: two box columns side by side, otherwise one column
+msBothOn() := msPosOn & msCoinOn;
+msBoxW() := if(msBothOn(), cdChkW, cdChkW1);        // width of the box column area
+
+// violet band behind a measured board row
+msRowDecor(xl, xr, y, dy) := (
+  fillpoly([[xl, y - dy/2], [xr, y - dy/2], [xr, y + dy/2], [xl, y + dy/2]], color->colMs, alpha->thBandA);
+);
+
+// dashed frame around a row band whose qubit measurement gave o (1 = |<-, 2 = |->): red / blue
+msRowFrame(xl, xr, y, dy, o) := (
+  regional(c, a, b, n, k, t0, t1, yy, h);
+  c = if(o == 1, colUp, colDown);
+  h = dy/2*0.94;
+  n = 2*floor(abs(xr - xl)/0.3);
+  forall(0..(n - 1), k, if(mod(k, 2) == 0, (
+    t0 = xl + (xr - xl)*k/n;  t1 = xl + (xr - xl)*(k + 1)/n;
+    draw([t0, y + h], [t1, y + h], color->c, size->1.3);
+    draw([t0, y - h], [t1, y - h], color->c, size->1.3);
+  )));
+  n = max(2, 2*floor(2*h/0.15));
+  forall(0..(n - 1), k, if(mod(k, 2) == 0, (
+    t0 = y - h + 2*h*k/n;  t1 = y - h + 2*h*(k + 1)/n;
+    draw([xl, t0], [xl, t1], color->c, size->1.3);
+    draw([xr, t0], [xr, t1], color->c, size->1.3);
+  )));
+);
+
+// checkbox of one board row (centre cx, row pitch dy); shrinks with the rows, >= 2.5 px.
+// kind 0: position box, 1: coin box, 2: coin box already fixed (greyed out, auto-checked)
+msChkDraw(cx, y, dy, on, kind) := (
+  regional(kp, px, hs, xl, xr, yb, yt, cg);
+  kp = screenresolution();
+  px = max(2.5, min(fs(11), 0.72*dy*kp));
+  hs = 0.5*px/kp;
+  xl = cx - hs; xr = cx + hs; yb = y - hs; yt = y + hs;
+  cg = (.55, .55, .55);
+  if(kind == 2,
+    (
+      fillpoly([[xl,yb],[xr,yb],[xr,yt],[xl,yt]], color->cg, alpha->.5);
+      if(px >= 4, (
+        draw([xl,yb],[xr,yb], color->cg, size->1);
+        draw([xr,yb],[xr,yt], color->cg, size->1);
+        draw([xr,yt],[xl,yt], color->cg, size->1);
+        draw([xl,yt],[xl,yb], color->cg, size->1);
+      ));
+    ),
+    if(on,
+      fillpoly([[xl,yb],[xr,yb],[xr,yt],[xl,yt]], color->colMs, alpha->1),
+      if(px < 4,
+        fillpoly([[xl,yb],[xr,yb],[xr,yt],[xl,yt]], color->colMs, alpha->.25),
+        (
+          fillpoly([[xl,yb],[xr,yb],[xr,yt],[xl,yt]], color->thPaper, alpha->1);
+          draw([xl,yb],[xr,yb], color->colMs, size->1);
+          draw([xr,yb],[xr,yt], color->colMs, size->1);
+          draw([xr,yt],[xl,yt], color->colMs, size->1);
+          draw([xl,yt],[xl,yb], color->colMs, size->1);
+        )
+      )
+    )
+  );
+);
+
+// ---- board: one row of circles per step; rows with measurement boxes; registers click targets in uiHits ----
+// walk = list of states (row 0 .. N), origin = centre of the top row, dx/dy = column/row pitch, r = circle radius
 drawWalkBoard(walk, origin, dx, dy, r) := (
+  regional(upperCenterX, upperCenterY, numRows, rno, state, numSites, stepCount, y, rowMeasured, xl, xr, xP, xQ,
+           j, x, hx, hy, hint, hsz);
   upperCenterX = origin_1;
   upperCenterY = origin_2;
   numRows  = length(walk);
+  xl = upperCenterX - (numRows - 0.5)*dx;        // left / right edge of the board
+  xr = upperCenterX + (numRows - 0.5)*dx;
 
   forall(1..numRows, rno, (
     state = walk_rno;
     numSites = length(state);
-    stepCount = rno - 1;  
+    stepCount = rno - 1;
     y = upperCenterY - (numRows-rno) * dy;
 
+    rowMeasured = false;
+    if(msOn,
+      (
+        // box columns: both kinds on -> "Ort" | "Qubit" side by side, otherwise the single kind next to the board
+        xP = if(msBothOn(), xl - 0.75*msBoxW(), xl - 0.5*msBoxW());   // centre of the position box column
+        xQ = if(msBothOn(), xl - 0.25*msBoxW(), xl - 0.5*msBoxW());   // centre of the coin box column
+        if(msPosOn & stepCount >= 1,
+          (
+            // position box + band; both toggle the position measurement
+            uiHits = uiHits ++ [[xl, y - dy/2, xr, y + dy/2, "r" + stepCount]];
+            uiHits = uiHits ++ [[xl - msBoxW(), y - dy/2, if(msBothOn(), xl - 0.5*msBoxW(), xl), y + dy/2, "r" + stepCount]];
+            rowMeasured = (msRows_stepCount == 1);
+            if(rowMeasured, msRowDecor(xl, xr, y, dy));
+            msChkDraw(xP, y, dy, rowMeasured, 0);
+          )
+        );
+        // qubit box in every row 0..N
+        if(msCoinOn,
+          (
+            uiHits = uiHits ++ [[if(msBothOn(), xl - 0.5*msBoxW(), xl - msBoxW()), y - dy/2, xl, y + dy/2, "q" + stepCount]];
+            msChkDraw(xQ, y, dy, msCoinFlag(stepCount), if(msGreyed(stepCount), 2, 1));
+            if((msCoinFlag(stepCount) % msGreyed(stepCount)) & stepCount < length(msCoinOut), if(msCoinOut_(stepCount + 1) > 0, msRowFrame(xl, xr, y, dy, msCoinOut_(stepCount + 1))));
+          )
+        );
+      )
+    );
+
+    // animation mode: while a cycle runs (animT < 1) the last row (N) is shown only through the transitions of row N-1;
+    // at the end of the cycle (animT = 1) everything is drawn statically
     forall(1..numSites, j, (
-      if(isReachable(j, stepCount),
+      if(isReachable(j, stepCount) & !(animOn & animT < 1 & rno == numRows & numRows > 1),
         (
           x = upperCenterX + (j - mid) * dx;
-          drawSite([x,y], r, state_j);
+          if(rowMeasured,
+            if(j == msOut_stepCount,
+              (drawSite([x,y], r, state_j); drawcircle([x,y], r, color->colMs, size->3);),
+              (fillcircle([x,y], r, color->cLightGray, alpha->.03);
+               drawcircle([x,y], r, color->cLightGray, alpha->.45, size->1);)
+            ),
+            drawSite([x,y], r, state_j)
+          );
+          // the step from this site to the next row (not from sites without amplitude)
+          if(animOn & animT < 1 & rno < numRows & abs(state_j_1)^2 + abs(state_j_2)^2 > 1e-12,
+            (
+              stateTransitionUp([x,y], [x - dx, y + dy], r, coinP, coinRot, state_j, animT);
+              stateTransitionDown([x,y], [x + dx, y + dy], r, coinP, coinRot, state_j, animT);
+            )
+          );
         )
       );
     ));
   ));
+  // column headers above the box columns
+  if(msOn,
+    (
+      hx = xl;
+      hy = upperCenterY + r + 0.12;      // inside the gap reserved between board and histogram
+      drawtext([hx - 0.5*msBoxW(), hy + 0.3], tr("msCol"),
+               align->"mid", size->fs(fsTick), bold->true, color->colMs);
+      // short hint right of the column headers (scaled to fit half the board width)
+      if(msPosOn,
+        (
+          hint = tr("msHint");
+          hsz = min(fs(fsTick), 0.5*(numRows - 0.5)*2*dx*screenresolution()/(0.55*length(hint)));
+          drawtext([hx + 0.12, hy + 0.04], hint, align->"left", size->hsz, color->thMuted);
+        )
+      );
+      if(msPosOn, drawtext([hx - if(msBothOn(), 0.75, 0.5)*msBoxW(), hy], tr("msColPos"), align->"mid", size->fs(fsTick), color->colMs));
+      if(msCoinOn, drawtext([hx - if(msBothOn(), 0.25, 0.5)*msBoxW(), hy], tr("msColCoin"), align->"mid", size->fs(fsTick), color->colMs));
+    )
+  );
 );
 
-last(L) := L_(length(L));
+// ---- per-row mini histograms ----
+// x0..x1 = column, topY = centre of the top row, dy = row pitch, r = circle radius,
+// T = number of rows, s = N, mLoc = index of site 0. Row k shows msPre_(k+1) (before the row's measurements),
+// same x axis in every row (sites -s..s), each row scaled to its own maximum. Thin rows: heat strip.
+// The sampled site of a position-measured row is violet.
+drawMiniRows(x0, x1, topY, dy, r, T, s, mLoc) := (
+  regional(kp, hh, hb, strip, sw, qk, y, P, pm, qi, qx, jj, v, xa, xb, yb, bh, hit, yTop, ybot, hsz, tl);
+  kp = screenresolution();
+  sw = (x1 - x0)/(2*s + 1);
+  hh = 0.86*if(dy > 0, dy, 2*r);       // row band (background, heat strips)
+  strip = hh*kp < 10;
+  hb = 0.55*if(dy > 0, dy, 2*r);       // bar height of a row's mini histogram: about half the row pitch
+  ybot = topY - (T - 1)*dy - hh/2 - 0.02;  yTop = topY + hh/2 + 0.02;
+  fillpoly([[x0, ybot], [x1, ybot], [x1, yTop], [x0, yTop]], color->(.5,.5,.5), alpha->.05);
+  draw([x0 + (s + 0.5)*sw, ybot], [x0 + (s + 0.5)*sw, yTop], color->(.5,.5,.5), alpha->.35, size->1);   // site 0
+  forall(0..(T - 1), qk, (
+    y = topY - (T - 1 - qk)*dy;
+    P = msPre_(qk + 1);
+    pm = 0;
+    forall(0..qk, qi, (v = P_(mLoc - qk + 2*qi); if(v > pm, pm = v)));
+    hit = if(qk >= 1, if(msRows_qk == 1, msOut_qk, 0), 0);
+    if(pm > 0,
+      forall(0..qk, qi, (
+        qx = -qk + 2*qi;
+        jj = mLoc + qx;
+        v = P_jj/pm;
+        xa = x0 + (qx + s)*sw + 0.1*sw;  xb = x0 + (qx + s + 1)*sw - 0.1*sw;
+        if(strip, (xa = xa - 0.1*sw; xb = xb + 0.1*sw));
+        if(v > 1e-9 % jj == hit,
+          if(strip,
+            fillpoly([[xa, y - hh/2], [xb, y - hh/2], [xb, y + hh/2], [xa, y + hh/2]],
+                     color->if(jj == hit, colMs, colDist), alpha->if(jj == hit, 1, min(1, .12 + v))),
+            (
+              yb = y - hb/2;  bh = hb*v;
+              fillpoly([[xa, yb], [xb, yb], [xb, yb + bh], [xa, yb + bh]], color->if(jj == hit, colMs, colDist), alpha->1);
+            )
+          )
+        );
+      ))
+    );
+    // thin baseline of the row's mini histogram (reachable sites only)
+    if(!strip, draw([x0 + (s - qk)*sw, y - hb/2], [x0 + (s + qk + 1)*sw, y - hb/2], color->(.5,.5,.5), alpha->.45, size->1));
+  ));
+  // header: title and axis labels (sites -N, 0, N) above the column
+  hsz = min(fs(fsTick), (x1 - x0)*kp/(0.6*length(tr("msMiniChip"))));
+  drawtext([(x0 + x1)/2, yTop + 0.42], tr("msMiniChip"), align->"mid", size->hsz, bold->true, color->colMs);
+  tl = fs(fsTick - 1);
+  drawtext([x0 + 0.5*sw, yTop + 0.12], "" + (-s), align->"left", size->tl, color->thMuted);
+  drawtext([x0 + (s + 0.5)*sw, yTop + 0.12], "0", align->"mid", size->tl, color->thMuted);
+  drawtext([x1 - 0.5*sw, yTop + 0.12], "" + s, align->"right", size->tl, color->thMuted);
+);
 
+// ---- probability axis at the left edge of the histogram: ticks at a "nice" spacing (1, 2, 5 x 10^n) ----
+// (x0, y0) = bottom-left, h = height of the full scale, vtop = probability at full height, sc = 1/vtop
+drawProbAxis(x0, y0, h, vtop, sc) := (
+  regional(mg, sd, sI, kk, tv, ty);
+  mg = vtop/3;
+  sd = 10^floor(log(mg)/log(10));
+  sI = mg/sd;
+  sI = if(sI < 1.5, 1, if(sI < 3.5, 2, if(sI < 7.5, 5, 10)));
+  sd = sI*sd;
+  draw([x0, y0], [x0, y0 + h], color->thFg, size->1);
+  forall(0..floor(vtop/sd + 1e-9), kk, (
+    tv = kk*sd;  ty = y0 + tv*sc*h;
+    draw([x0 - 0.07, ty], [x0, ty], color->thFg, size->1);
+    if(kk > 0, drawtext([x0 - 0.1, ty - 0.05], format(tv, 3), align->"right", size->fs(fsTick), color->thFg));
+  ));
+);
+
+// ---- histogram of the final distribution ----
+// state = reachable slice, center = [x, y] of the baseline middle, size = [width, height].
+// Series: orange = single run, violet = exact ensemble mean, green = Galton board, dots = collected frequencies.
+// All series share ONE scale: the tallest value reaches the full height.
+drawDist(state, center, size) := (
+  regional(P, Nb, cx, w, h, x0, y0, bw, pad, pmax, ens, ensOn, emax, fmax, gmax, gs, smax, sc, vtop,
+           jj, xL, xR, bh, xc, dRad, jf, lastMeas, mI, dd, kk, pg, gl, lgY, lgTx, lgW1, mHs);
+  if(length(state) == 0, return());
+  P = probsOf(state);
+  Nb = length(P);
+  cx = center_1;
+  w  = size_1;   h  = size_2;
+  pmax = maxOf(P);
+
+  // violet exact mean only if switched on and available for this size
+  ensOn = msOn & msExOn & msAnyMeas() & length(msEns) == Nb;
+  ens = if(ensOn, msEns, []);
+  emax = if(ensOn, maxOf(ens), 0);
+  fmax = if(msOn & length(msFq) == Nb, maxOf(msFq), 0);
+  // last row measured: the single run ends deterministically in one site -> marker instead of a bar
+  lastMeas = msOn & msAnyMeas() & maxSteps > 0 & msRows_maxSteps == 1;
+  jf = 0;
+  if(lastMeas & length(msOut) >= maxSteps, jf = msOut_maxSteps - (mid - maxSteps) + 1);
+  gmax = 0;
+  gl = [];
+  if(gauss,
+    // Galton board: Bin(N, q) on the reachable sites x = 2k - N, k = number of steps to the right
+    (
+      gs = round((Nb - 1)/2);
+      gl = apply(0..gs, kk, comb(gs, kk)*galtonPow(stQ, kk)*galtonPow(1 - stQ, gs - kk));
+      gmax = maxOf(gl);
+    )
+  );
+
+  // ONE common scale: tallest of all drawn series reaches the full height
+  smax = pmax;
+  if(msOn, smax = max(fmax, if(lastMeas, 0, pmax)));
+  if(ensOn, smax = max(smax, emax));
+  smax = max(smax, gmax);                       // the green bars always take part in the common scale
+  if(smax <= 0, smax = 1);
+  sc   = if(distNormalizeToMax, 1/smax, 1);
+  vtop = 1/sc;                                  // probability at full height
+
+  x0 = cx - w/2;  y0 = center_2;
+  bw = w / Nb;
+  pad = 0.05*bw;
+
+  draw([x0, y0], [x0 + w, y0], color->thFg);      // baseline
+  drawProbAxis(x0, y0, h, vtop, sc);
+
+  // orange: current single run (filled; no bar if the last row is measured)
+  forall(1..Nb, jj, (
+    bh = P_jj*sc*h;
+    if(bh > 0 & !lastMeas,
+      (
+        xL = x0 + (jj-1)*bw + pad;  xR = x0 + jj*bw - pad;
+        fillpoly([[xL,y0],[xR,y0],[xR,y0+bh],[xL,y0+bh]], color->colDist, alpha->1);
+      )
+    );
+  ));
+
+  // violet: exact ensemble average (filled, narrower, in front of orange)
+  if(ensOn,
+    forall(1..Nb, jj, (
+      bh = ens_jj*sc*h;
+      if(bh > 0,
+        (
+          xL = x0 + (jj-1)*bw + pad + .18*bw;  xR = x0 + jj*bw - pad - .18*bw;
+          fillpoly([[xL,y0],[xR,y0],[xR,y0+bh],[xL,y0+bh]], color->colMs, alpha->.85);
+        )
+      );
+    ))
+  );
+
+  // optional: classical Galton board Bin(N, q); only sites of the right parity carry a bar
+  if(gauss,
+    (
+      mI = 1 + floor((Nb - 1)/2);
+      forall(1..Nb, jj, (
+        dd = jj - mI;
+        if(abs(dd) <= gs & (mod(abs(dd),2) == mod(gs,2)),
+          (
+            kk = (gs + dd)/2;
+            pg = gl_(kk + 1);
+            bh = (pg * sc) * h;
+            if(bh > 0,
+              (
+                xL = x0 + (jj-1)*bw + pad+.3*bw;
+                xR = x0 + jj*bw - pad-.3*bw;
+                fillpoly([[xL,y0],[xR,y0],[xR,y0+bh],[xL,y0+bh]], color->colGauss, alpha->1);
+              )
+            );
+          )
+        );
+      ));
+    )
+  );
+
+  // collected relative frequencies: dots
+  if(msOn & length(msFq) == Nb,
+    (
+      dRad = max(2, min(3.5, 0.3*bw*screenresolution()))/screenresolution();
+      forall(1..Nb, jj, (
+        if(msFq_jj > 0,
+          (
+            xc = x0 + (jj - 0.5)*bw;
+            fillcircle([xc, y0 + min(msFq_jj*sc, 1)*h], dRad + 0.6/screenresolution(), color->thPaper, alpha->1);
+            fillcircle([xc, y0 + min(msFq_jj*sc, 1)*h], dRad, color->colMsDark, alpha->1);
+          )
+        );
+      ));
+    )
+  );
+
+  // deterministic outcome: orange triangle marker on the baseline, drawn last (on top of everything):
+  // opaque strong orange with a white halo and a thin dark outline so it separates from the violet bars
+  if(jf >= 1 & jf <= Nb,
+    (
+      xc = x0 + (jf - 0.5)*bw;
+      mHs = max(0.7*bw, 7/screenresolution());
+      mHs = min(mHs, 0.17);
+      fillpoly([[xc - mHs - 0.025, y0 - 0.045], [xc + mHs + 0.025, y0 - 0.045], [xc, y0 + 1.75*mHs + 0.04]], color->thPaper, alpha->1);
+      fillpoly([[xc - mHs, y0 - 0.02], [xc + mHs, y0 - 0.02], [xc, y0 + 1.75*mHs]], color->thOrange, alpha->1);
+      drawpoly([[xc - mHs, y0 - 0.02], [xc + mHs, y0 - 0.02], [xc, y0 + 1.75*mHs]], color->thFg, size->1);
+    )
+  );
+
+  // small legend above the histogram (not in measurement mode: it is in the panel)
+  if(!msOn,
+    (
+      lgY  = y0 + h + 0.2;
+      lgTx = "■ " + tr("legQW");
+      lgW1 = 0.6*fs(12)*length(lgTx)/screenresolution() + 0.3;
+      drawtext([x0, lgY], lgTx, align->"left", size->fs(12), color->thOrange);
+      if(gauss,
+        drawtext([x0 + lgW1, lgY], "■ " + tr("legGalton") + ", q = " + uiFmt2(stQ) + ")", align->"left", size->fs(12), color->colGauss)
+      );
+    )
+  );
+);
+
+// ---- board + histogram packed into the rectangle [BL, TR] ----
+// histFrac = share of the height for the histogram, gap = space between board and histogram
 drawWalkInRectWithFrac(walk, BL, TR, histFrac, gap) := (
-  // --- outer rectangle ---
+  regional(xL, yB, xR, yT, W, H, qmOn, qmW, qmX0, qmX1, T, S, Np, s, mLoc, f, Hhist, Hboard, Nused, dx, rH, rV, r, dy,
+           xC, topX, topY, jL, jR, subS, yAxis, hUsed, j);
   xL = BL_1; yB = BL_2; xR = TR_1; yT = TR_2;
   W  = xR - xL;         H  = yT - yB;
   if(W <= 0 % H <= 0, return());
 
-  // --- time/space ---
+  // optional column of per-row mini histograms at the right edge: board and histogram get narrower
+  qmOn = msOn & msMiniOn & length(msPre) == length(walk);
+  qmW = 0;
+  qmX0 = xR; qmX1 = xR;
+  if(qmOn, (
+    qmW = max(1.4, min(3.2, 0.2*W));
+    qmX1 = xR;
+    W = W - qmW - 0.3;
+    qmX0 = xL + W + 0.3;
+  ));
+
+  // time/space
   T = length(walk);                 if(T == 0, return());
   S = walk_(-1);                    // last state
   Np = length(S);                   if(Np == 0, return());
   s = T - 1;                        // last step count (>=0)
   mLoc = 1 + floor((Np - 1)/2);     // local middle index of S
 
-  // --- split height ---
+  // split height
   f = max(0, min(1, histFrac));
   Hhist  = f * H;
   Hboard = H - Hhist;
 
-  // --- column spacing fitted to the reachable width (2s+1 columns) ---
-  Nused = 2*s + 1;                  // reachable columns at step s
+  // column spacing fitted to the reachable width (2s+1 columns)
+  Nused = 2*s + 1;
   dx    = W / Nused;
 
-  // --- circle radius + row spacing ---
+  // circle radius + row spacing
   rH = 0.5 * dx;
   rV = if(T > 0, Hboard / (2*T), Hboard/2);
   r  = 0.98 * min(rH, rV);
   dy = if(T > 1, (Hboard - 2*r) / (T - 1), 0);
 
-  // --- TOP-CENTER for the board (keep visual center fixed) ---
+  // top-centre of the board
   xC   = xL + W/2;
-  topX = xC + (mid - mLoc) * dx;    // compensate if global 'mid' ≠ local middle
+  topX = xC + (mid - mLoc) * dx;    // compensate if global 'mid' differs from the local middle
   topY = yB + Hboard - r;
 
-  // 1) board
   drawWalkBoard(walk, [topX, topY], dx, dy, r);
+  if(qmOn, drawMiniRows(qmX0, qmX1, topY, dy, r, T, s, mLoc));
 
-  // 2) histogram over reachable slice ONLY, spanning FULL width W
+  // histogram over the reachable slice only, spanning the full width W
   jL   = max(1, mLoc - s);
   jR   = min(Np, mLoc + s);
-  subS = apply(jL..jR, j, S_j);     // contiguous slice, length = Nused
+  subS = apply(jL..jR, j, S_j);
+  msFq = [];                        // global: also read by drawDist
+  if(msOn & msN > 0, msFq = apply(jL..jR, j, msCnt_j/msN));
 
-  // geometry: baseline just above top row; bars fill full width
-  gapEff = gap;
-  yAxis  = topY + r + gapEff;
-  hUsed  = max(0.000001, Hhist - gapEff);  // tiny clamp so height is never 0
-  cxDist = xC;                             // center of the rectangle
-  wUsed  = W;                              // bars span the full available width
-
-  // 3) distribution (uses your unchanged drawDist signature)
-  drawDist(subS, [cxDist, yAxis], [wUsed, hUsed]);
-);
-;
-
-//slider
-// Draws a box around the coin UI (p-slider, phi-slider, matrix)
-// x,y  : same anchor you pass to makeslider (center of rails)
-// l    : same length as in makeslider
-// hdist: same vertical spacing as in makeslider
-// padX : extra horizontal padding (world units)
-// padY : extra vertical padding (world units)
-// fillA: optional fill alpha (0 = no fill)
-drawCoinPanelBox(x, y, l, hdist, padX, padY, fillA) := (
-  // same header geometry as in makeslider
-  titleGapP = 0.3;  lineStepP = 0.3;
-
-  // horizontal span: rails go from x - 0.5*l to x + 0.5*l
-  xL = (x - 0.5*l) - padX;
-  xR = (x + 0.5*l) + padX;
-
-  // vertical span:
-  // top = top line of p-header; bottom = matrix block baseline minus a safe margin
-  yTop = y + titleGapP + 2*lineStepP;
-  yMatBase = y - 2.2*hdist;    // same offset you use for the matrix placement
-  yBot = yMatBase - 0.9;       // small fudge below the TeX box
-
-  yB = yBot - padY;
-  yT = yTop + padY;
-
-  // optional soft fill
-  if(fillA > 0,
-    fillpoly([[xL,yB],[xR,yB],[xR,yT],[xL,yT]], color->colSlP, alpha->fillA)
-  );
-
-  // frame
-  draw([xL,yB],[xR,yB], color->colSlP, size->1.6);
-  draw([xR,yB],[xR,yT], color->colSlP, size->1.6);
-  draw([xR,yT],[xL,yT], color->colSlP, size->1.6);
-  draw([xL,yT],[xL,yB], color->colSlP, size->1.6);
+  // baseline just above the top row
+  yAxis  = topY + r + gap;
+  hUsed  = max(0.000001, Hhist - gap);  // tiny clamp so the height is never 0
+  drawDist(subS, [xC, yAxis], [W, hUsed]);
 );
 
-makeslider(x, y, l, hdist) := (
-  // ---------- Slider: Bias p ----------
-  // rail geometry (must exist before we compute header positions)
-  slCoinpY = y;
-  slCoinpS = (x - 0.5*l, slCoinpY);
-  slCoinpE = (x + 0.5*l, slCoinpY);
 
-  // header (left-aligned at rail start)
-  titleGap = 0.3;  lineStep = 0.3;
-  xText = slCoinpS.x;
-  yTop  = slCoinpY + titleGap + 2*lineStep;
+// =====================================================================
+// 7  UI: clickable chips, cards, sliders, start-state circle, measurement panel
+// =====================================================================
 
-  drawtext((xText, yTop),                 tr("coinBiasTitle"),                 align->"left", size->14, color->colSlP);
-  drawtext((xText, yTop - lineStep),      tr("coinBiasHigh"), align->"left", size->12, color->colSlP);
-  drawtext((xText, yTop - 2*lineStep),    tr("coinBiasLow"),    align->"left", size->12, color->colSlP);
+// state that must survive layout changes (handles are re-placed from it by layRemap)
+stP   = 0.5;                          // slider fraction of bias p
+stPhi = 0;                            // slider fraction of phase phi (as a fraction of 2 pi)
+stN   = 5;                            // number of steps
+stSp  = 0.5;                          // slider fraction of the animation speed (0.5 ~ 3 seconds per step)
+stQ   = 0.5;                          // Galton board: probability q of going right
+zUpS   = [sqrt(.5), 0];               // up knob relative to circle centre / r
+zDownS = [0, sqrt(.5)];               // down knob relative to circle centre / r
+gauss = false;                        // Galton board on/off
+initphaseR = 1;                       // radius of the start-state circle
 
-  // rail + ticks
-  draw(slCoinpS, slCoinpE, color->colSlP);
-  snapVals = [0, 0.25, 0.5, 0.75, 1];
-  snapEps  = 0.03;
-  tickGap  = -0.1;  tickLen = 0.2;
-
-  forall(snapVals, s, (
-    xt = slCoinpS.x + s*l;
-    draw((xt, slCoinpY - tickGap), (xt, slCoinpY - tickGap - tickLen), color->colSlP);
-    drawtext((xt, slCoinpY - tickGap - tickLen - 0.3), format(s, 2), align->"mid", color->colSlP);
-  ));
-
-  // handle + snapping
-  slCoinpP.color = colSlP;
-  slCoinpP.y = slCoinpY;
-  slCoinpP.x = min(slCoinpE.x, max(slCoinpS.x, slCoinpP.x));
-
-  tRaw = |slCoinpP, slCoinpS| / l;
-  nearest = tRaw; mind = 2;
-  forall(snapVals, s, if(abs(tRaw - s) < mind, (mind = abs(tRaw - s); nearest = s)));
-  t = if(mind < snapEps, nearest, tRaw);
-  slCoinpP.x = slCoinpS.x + t*l;
-  coinP = t;
-
-  // ---------- Slider: Phase φ (π/2 snaps) ----------
-  slPhiY = y - hdist;
-  slPhiS = (x - 0.5*l, slPhiY);
-  slPhiE = (x + 0.5*l, slPhiY);
-
-  titleGapPhi = 0.3;  lineStepPhi = 0.33;
-  xTextPhi = slPhiS.x;
-  yTopPhi  = slPhiY + titleGapPhi + 2*lineStepPhi;
-
-  drawtext((xTextPhi, yTopPhi),                 tr("coinPhaseTitle"),            align->"left", size->14, color->colSlPhi);
-  drawtext((xTextPhi, yTopPhi - lineStepPhi),   tr("coinPhaseDesc"),    align->"left", size->12, color->colSlPhi);
-  drawtext((xTextPhi, yTopPhi - 2*lineStepPhi), tr("coinPhaseReal"), align->"left", size->12, color->colSlPhi);
-
-  draw(slPhiS, slPhiE, color->colSlPhi);
-
-  phiSnapVals = [0, 0.25, 0.5, 0.75, 1];
-  phiSnapEps  = 0.03;  phiTickGap = -0.1;  phiTickLen = 0.2;
-
-  phiTickLabel(s) := if(s==0,"0", if(s==0.25,"π/2", if(s==0.5,"π", if(s==0.75,"3π/2","2π"))));
-  forall(phiSnapVals, s, (
-    xt = slPhiS.x + s*l;
-    draw((xt, slPhiY - phiTickGap), (xt, slPhiY - phiTickGap - phiTickLen), color->colSlPhi);
-    drawtext((xt, slPhiY - phiTickGap - phiTickLen - 0.3), phiTickLabel(s), align->"mid", color->colSlPhi);
-  ));
-
-  slCoinPhiP.color = colSlPhi;
-  slCoinPhiP.y = slPhiY;
-  slCoinPhiP.x = min(slPhiE.x, max(slPhiS.x, slCoinPhiP.x));
-
-  tPhiRaw = |slCoinPhiP, slPhiS| / l;
-  nearestPhi = tPhiRaw; mindPhi = 2;
-  forall(phiSnapVals, s, if(abs(tPhiRaw - s) < mindPhi, (mindPhi = abs(tPhiRaw - s); nearestPhi = s)));
-  tPhi = if(mindPhi < phiSnapEps, nearestPhi, tPhiRaw);
-  slCoinPhiP.x = slPhiS.x + tPhi*l;
-  coinRot = 2*pi*tPhi;
-
-  // ---------- Symbolic matrix (TeX) ----------
-  drawtext((x, y - 2.2*hdist + 0.75),
-           tr("coinMatrixTitle"),
-           align->"center", size->14, color->colSlP);
-drawtext((x, y-2.2*hdist),
-"$U(p,\phi)=\begin{pmatrix}\sqrt{p} & e^{i\phi}\sqrt{1-p}\\ e^{-i\phi}\sqrt{1-p} & -\sqrt{p}\end{pmatrix}$",
-align->"mid", size->14, color->colTeXCoin);
-
-  // ---------- Slider: Anzahl Schritte N ----------
-  slMaxStepY = y - 5.5*hdist;
-  slMaxStepS = (x - 0.5*l, slMaxStepY);
-  slMaxStepE = (x + 0.5*l, slMaxStepY);
-
-  titleGapN = 0.3;  lineStepN = 0.30;
-  xTextN = slMaxStepS.x;
-  yTopN  = slMaxStepY + titleGapN + 1*lineStepN;
-
-  drawtext((xTextN, yTopN), tr("stepsTitle"), align->"left", size->14, color->colSlN);
-  draw(slMaxStepS, slMaxStepE, color->colSlN);
-
-  // ticks/labels: 0,50,100,...,M (M=maxmaxSteps)
-  tickGapN = -0.1;  tickLenN = 0.2;  M = max(0, round(maxmaxSteps));  stepLbl = 50;
-  if(M == 0,
-    (
-      xt = slMaxStepS.x;
-      draw((xt, slMaxStepY - tickGapN), (xt, slMaxStepY - tickGapN - tickLenN), color->colSlN);
-      drawtext((xt, slMaxStepY - tickGapN - tickLenN - 0.3), "0", align->"mid", color->colSlN);
-    ),
-    (
-      kMax = floor(M/stepLbl);
-      forall(0..kMax, k, (
-        nTick = k*stepLbl;
-        tTick = nTick / M;
-        xt    = slMaxStepS.x + tTick*l;
-        draw((xt, slMaxStepY - tickGapN), (xt, slMaxStepY - tickGapN - tickLenN), color->colSlN);
-        drawtext((xt, slMaxStepY - tickGapN - tickLenN - 0.3), "" + nTick, align->"mid", color->colSlN);
-      ));
-      if(mod(M, stepLbl) != 0, (
-        xt = slMaxStepE.x;
-        draw((xt, slMaxStepY - tickGapN), (xt, slMaxStepY - tickGapN - tickLenN), color->colSlN);
-        drawtext((xt, slMaxStepY - tickGapN - tickLenN - 0.3), "" + M, align->"mid", color->colSlN);
-      ));
-    )
-  );
-
-  // handle + integer snap
-  slMaxStepP.color = colSlN;
-  slMaxStepP.y = slMaxStepY;
-  slMaxStepP.x = min(slMaxStepE.x, max(slMaxStepS.x, slMaxStepP.x));
-
-  tNraw = if(l>0, |slMaxStepP, slMaxStepS|/l, 0);
-  Nraw  = round(tNraw * maxmaxSteps);
-  Nraw  = min(maxmaxSteps, max(0, Nraw));
-  tN    = if(maxmaxSteps>0, Nraw/maxmaxSteps, 0);
-  slMaxStepP.x = slMaxStepS.x + tN*l;
-  maxSteps = Nraw;
-
-  // live value under the header
-  drawtext((xTextN, yTopN - lineStepN), "N = " + maxSteps, align->"left", size->12, color->colSlN);
-
-  // refresh coin from sliders
-  coin = coinGen(coinP, coinRot);
+// ---- generic formatting helpers ----
+// number with exactly 2 decimals
+uiFmt2(x) := (
+  regional(k);
+  k = round(x*100);
+  "" + floor(k/100) + "." + floor(mod(k,100)/10) + mod(k,10)
 );
-
-// ---------- initial handle placement + call ----------
-sliderMx = SLC.x;
-sliderMy = SLC.y;
-sliderL  = sliderWidth;
-
-slCoinpP.x    = sliderMx;
-slCoinPhiP.x  = sliderMx - 0.5*sliderL;
-slMaxStepP.x  = (sliderMx - 0.5*sliderL) + (5/maxmaxSteps)*sliderL;
-
-makeslider(sliderMx, sliderMy, sliderL, 2);
-drawCoinPanelBox(sliderMx, sliderMy, sliderL, 2, 0.35, 0.35, 0.06);
-;
-//initphase
-// Unicode Brackets
-bra = "\u27E8";  // ⟨
-ket = "\u27E9";  // ⟩
-
 
 // wrap angle to (-pi, pi]
 wrapPi(a) := (
+  regional(b);
   b = a - 2*pi*floor((a + pi)/(2*pi));
-  if(b<=-pi, b+2*pi, b)
+  if(b <= -pi, b + 2*pi, b)
 );
 
 // pretty-print as multiple of π (e.g. -0.5π, 1.25π)
 formatPi(phi) := (
+  regional(k);
   k = round((phi/pi)*100)/100;           // 2 decimal multiples of π
   if(abs(k) < 1e-9, "0",
     if(abs(k-1) < 1e-9, "π",
@@ -680,135 +1278,1526 @@ formatPi(phi) := (
   )
 );
 
-initphase(c, r, set) := (
-  if(set,
+// ---------------------------------------------------------------------
+// CLICKABLE TEXT CHIPS (no JS buttons): every chip is drawn each frame and
+// registers its screen rectangle in uiHits; csmouseup picks the hit whose
+// centre is nearest to the mouse and dispatches on the action string via uiAct().
+// Active chip: solid colour + bold white text. Inactive: white, coloured outline + text.
+// ---------------------------------------------------------------------
+uiHits = [];       // click targets [xl, yb, xr, yt, action] of the current frame
+uiForceW = 0;      // > 0: next chip gets exactly this width (equal-width grids)
+uiOff = false;     // true: chips drawn greyed out and without click target
+uiNoGrow = false;  // true: chips keep their height on touch (tab bar sizes its own chips)
+uiMinW = 0;        // minimal chip width (keeps very short labels easy to hit)
+uiPressA = "";    // action of the last clicked chip (pressed feedback)
+uiPressT = -10;    // seconds() of that click
+
+// outline of a rounded rectangle (top-left x0, yt; width w; height h; corner radius r)
+cdRPts(x0, yt, w, h, r, nn) := (
+  regional(ctr, pts, cc, kk, a);
+  ctr = [[x0 + w - r, yt - r], [x0 + r, yt - r], [x0 + r, yt - h + r], [x0 + w - r, yt - h + r]];
+  pts = [];
+  forall(0..3, cc, forall(0..nn, kk, (
+    a = (cc + kk/nn)*pi/2;
+    pts = pts ++ [ctr_(cc + 1) + r*[cos(a), sin(a)]];
+  )));
+  pts
+);
+
+// natural width of a chip (world units)
+uiChipW(txt, fsz) := (
+  regional(szw);
+  szw = fs(fsz)/screenresolution();
+  max(uiMinW, 0.6*fs(fsz)*length(txt)/screenresolution() + 1.2*szw)
+);
+
+// pos = anchor (text baseline), align "left"|"mid"|"right"; returns chip width (world units)
+uiChipC(pos, txt, active, action, align, col, fsz) := (
+  regional(szw, wd, xl, yb, yt, pts, hp, wp, pr, hc);
+  szw = fs(fsz)/screenresolution();
+  hc = cdChipH;
+  if(touchOn & layTabs & !uiNoGrow, hc = max(hc, min(cdTouchChipPx/screenresolution(), cdChipH + 0.1)));   // touch: slightly taller chips (chip rows keep a gap)
+  wd  = uiChipW(txt, fsz);
+  if(uiForceW > 0, wd = uiForceW);
+  xl  = if(align == "right", pos_1 - wd, if(align == "mid", pos_1 - wd/2, pos_1));
+  yb  = pos_2 - (hc - 0.7*szw)/2;
+  yt  = yb + hc;
+  pts = cdRPts(xl, yt, wd, hc, 0.1, 3);
+  if(uiOff, (col = (.55,.55,.55); active = false));             // disabled: grey, not clickable
+  pr = !uiOff & (action == uiPressA) & (seconds() - uiPressT < 0.2);     // pressed feedback for 0.2 s after a click
+  fillpoly(pts, color->if(pr, 0.55*col, if(active, col, thPaper)), alpha->1);
+  drawpoly(pts, color->col, size->if(active, 1, 1.4));
+  drawtext([xl + wd/2, pos_2], txt, align->"mid", size->fs(fsz), bold->active % pr,
+           color->if(pr, (1,1,1), if(active, thOnCol, col)));
+  // click target at least cdTouchPx high (touch: cdTouchMin high and wide), padded invisibly
+  hp = max(0, (max(cdTouchPx, if(touchOn, cdTouchMin, 0))/screenresolution() - hc)/2);
+  wp = if(touchOn, max(0.03, (cdTouchMin/screenresolution() - wd)/2), 0.03);
+  if(!uiOff, uiHits = uiHits ++ [[xl - wp, yb - hp, xl + wd + wp, yt + hp, action]]);
+  wd
+);
+uiChip(pos, txt, active, action, align) := uiChipC(pos, txt, active, action, align, thBlue, fsTxt);
+
+// row of chips centered at cx; items = [[txt, active, action], ...]; baseline y
+uiRow(cx, y, items, col, fsz) := (
+  regional(tot, x0, it, wd, gp);
+  gp = 0.12;
+  tot = sum(apply(items, it, uiChipW(it_1, fsz))) + gp*(length(items) - 1);
+  x0 = cx - tot/2;
+  forall(items, it, (
+    wd = uiChipC([x0, y], it_1, it_2, it_3, "left", col, fsz);
+    x0 = x0 + wd + gp;
+  ));
+);
+
+// centered 2x2 grid; items = [[txt, active, action], ...] (4 entries, row-major);
+// columns get equal widths (max chip width of the column), whole grid centered at cx.
+uiGrid(cx, y, dyRow, items, col, fsz) := (
+  regional(w1, w2, gp, x0, k, it, rowY, colX, colW);
+  gp = 0.12;
+  if(touchOn & layTabs, dyRow = dyRow + 0.12);                  // touch + tabs: taller chips need more row distance
+  w1 = max(uiChipW(items_1_1, fsz), uiChipW(items_3_1, fsz));
+  w2 = max(uiChipW(items_2_1, fsz), uiChipW(items_4_1, fsz));
+  x0 = cx - (w1 + gp + w2)/2;
+  forall(1..4, k, (
+    it = items_k;
+    colX = if(mod(k,2) == 1, x0, x0 + w1 + gp);
+    colW = if(mod(k,2) == 1, w1, w2);
+    rowY = if(k <= 2, y, y - dyRow);
+    uiForceW = colW;
+    uiChipC([colX, rowY], it_1, it_2, it_3, "left", col, fsz);
+    uiForceW = 0;
+  ));
+);
+
+// ---------------------------------------------------------------------
+// CARDS
+// ---------------------------------------------------------------------
+// card geometry accessors: x centre and top edge of card i
+cdCx(i) := layCard_i_1 + layCard_i_3/2;
+cdTop(i) := layCard_i_2 - if(layTabs & i < 5, (layCard_i_4 - layNat_i)/2, 0);   // tabs: content centred vertically in the shared slot
+layNat = [4.7, 4.8, 4.8, 4.8];      // natural content height (from the card top) of cards 1..4
+cdInW() := if(layTabs, layCard_1_3, cdCW);                              // inner card width reference (tabs: the full-width card)
+layRail() := if(layTabs, min(7, layCard_1_3 - 2*cdPad - 0.4), layL);   // slider rail length (tabs: the card's inner width)
+
+// card frame: rounded outline, faint tint, title with separator
+cdFrame(i, ttl, col) := (
+  regional(x0, yt, w, pts);
+  x0 = layCard_i_1;  yt = layCard_i_2;  w = layCard_i_3;
+  pts = cdRPts(x0, yt, w, layCard_i_4, 0.16, 5);
+  fillpoly(pts, color->col, alpha->thCardA);
+  drawpoly(pts, color->col, size->1.6);
+  drawtext([x0 + cdPad, yt - 0.47], ttl, align->"left", size->fs(fsCard), bold->true, color->col);
+  draw([x0 + cdPad, yt - 0.66], [x0 + w - cdPad, yt - 0.66], color->col, alpha->.35, size->1);
+);
+
+// tick with label under a rail
+cdTick(xt, y, txt, col) := (
+  draw((xt, y + 0.1), (xt, y - 0.1), color->col);
+  drawtext((xt, y - 0.4), txt, align->"mid", size->fs(fsTick), color->col);
+);
+
+// ---- presets ----
+uiSq = sqrt(.5);
+coinPre  = [[.5, 0], [1, 0], [0, 0], [.5, .25]];          // [p, phi/(2 pi)]
+startPre = [[[1,0],[0,0]], [[0,0],[1,0]], [[uiSq,0],[uiSq,0]], [[uiSq,0],[0,uiSq]]];   // [[re,im] of up, [re,im] of down]
+
+applyCoin(k) := (
+  stP = coinPre_k_1;  stPhi = coinPre_k_2;
+  layRemap();                                  // slider handles jump
+);
+applyStart(k) := (
+  zUpS = startPre_k_1;  zDownS = startPre_k_2;
+  layRemap();                                  // knobs jump
+);
+coinActive(k) := abs(stP - coinPre_k_1) < 1e-3 &
+                 (abs(stPhi - coinPre_k_2) < 1e-3 % coinPre_k_1 == 0 % coinPre_k_1 == 1);
+startActive(k) := abs(zUpS_1 - startPre_k_1_1) + abs(zUpS_2 - startPre_k_1_2)
+                + abs(zDownS_1 - startPre_k_2_1) + abs(zDownS_2 - startPre_k_2_2) < 2e-3;
+
+// preset chips (card 2: 2x2 grid; card 3: one row)
+drawCoinChips(cx, y) := (
+  uiGrid(cx, y, 0.62, [[tr("coinHad"), coinActive(1), "c1"], [tr("coinStay"), coinActive(2), "c2"],
+                       [tr("coinSwap"), coinActive(3), "c3"], [tr("coinCmplx"), coinActive(4), "c4"]],
+         thBlue, fsTxt);
+);
+drawStartChips(cx, y) := (
+  drawtext((cx, y + 0.55), tr("startCap"), align->"mid", size->fs(fsTxt), color->thMuted);
+  uiMinW = 0.85;
+  uiRow(cx, y, [["|←⟩", startActive(1), "s1"], ["|→⟩", startActive(2), "s2"],
+                ["|←⟩+|→⟩", startActive(3), "s3"], ["|←⟩+i|→⟩", startActive(4), "s4"]],
+         thBlue, fsTxt);
+  uiMinW = 0;
+);
+
+// place the Galton q handle: on its rail while the board is on, parked outside the window otherwise
+placeQHandle() := (
+  slQP.xy = if(gauss & cardShown(4), (cdCx(4) - 0.5*layRail() + stQ*layRail(), layQy), (layXl - 20, layYt + 20));
+);
+
+// speed handle: parked outside the window unless in animation mode; makeSpeedslider re-places it on its rail
+// whenever the rail has moved (spX0 / spL remember the rail of the last frame)
+spX0 = -1e9;  spL = 0;
+placeSpHandle() := (
+  spX0 = -1e9;
+  if(!animOn % !cardShown(5), slSpP.xy = (layXl - 20, layYt + 20));
+);
+
+// all chip actions (action strings are set where the chips are drawn)
+uiAct(a) := (
+  uiPressA = a;  uiPressT = seconds();
+  if(a == "de", lang = "de");
+  if(a == "en", lang = "en");
+  if(a == "link", linkOpen());
+  if(length(a) == 4 & substring(a, 0, 3) == "tab", (layTab = parse(substring(a, 3, 4)); layRemap()));
+  if(a == "theme", (themeUser = 1 - themeCur; themeApply()));    // explicit choice overrides the system preference
+  if(a == "binom", (gauss = !gauss; placeQHandle()));
+  if(a == "animmode" & !msOn, animSetMode(!animOn));
+  if(a == "anim", animrun = !animrun);            // pause / resume (the loop is started / stopped by loopSync)
+  // the two measurement kinds are independent toggles (position / coin)
+  if(a == "mp" & !animOn, (msPosOn = !msPosOn; msSync()));
+  if(a == "mk" & !animOn, (msCoinOn = !msCoinOn; msSync()));
+  if(a == "mx", msExOn = !msExOn);       // exact ensemble mean on/off (computed only while on, cache kept)
+  if(a == "mm", msMiniOn = !msMiniOn);   // per-row mini histograms on/off
+  // fill helpers, separate for the position column (rows 1..N) and the coin column (rows 0..N);
+  // they edit the stored user flags (msRowsU / msCoinU); only rows <= N are set. The effective flags
+  // (msRows / msCoin, see msEffective) change, so msUpdate() resets caches (ensemble, counts).
+  if(a == "msAll",  msRowsU = apply(1..maxmaxSteps, k, if(k <= maxSteps, 1, 0)));
+  if(a == "msNone", msRowsU = apply(1..maxmaxSteps, k, 0));
+  if(a == "mcAll",  msCoinU = apply(1..(maxmaxSteps + 1), k, if(k <= maxSteps + 1, 1, 0)));
+  if(a == "mcNone", msCoinU = apply(1..(maxmaxSteps + 1), k, 0));
+  if(a == "msRoll", (msU = apply(1..maxmaxSteps, k, random()); msU2 = apply(1..(maxmaxSteps + 1), k, random())));
+  if(a == "ms1", msQueue(1));
+  if(a == "ms100", msQueue(100));
+  if(a == "msReset", (
+    msCnt = apply(1..(2*maxmaxSteps + 1), k, 0);
+    msN = 0; msPending = 0;
+  ));
+  // "r<k>": toggle position measurement of row k; "q<k>": toggle coin measurement of row k
+  if(length(a) > 1 & substring(a, 0, 1) == "r" & msPosOn, (
+    msRowK = parse(substring(a, 1, length(a)));
+    msRowsU_msRowK = 1 - msRowsU_msRowK;
+  ));
+  if(length(a) > 1 & substring(a, 0, 1) == "q" & msCoinOn, (
+    msRowK = parse(substring(a, 1, length(a)));
+    // greyed boxes (coin already fixed by the position measurement) are not clickable
+    if(!msGreyed(msRowK), msCoinU_(msRowK + 1) = 1 - msCoinU_(msRowK + 1));
+  ));
+  forall(1..4, k, (
+    if(a == "c" + k, applyCoin(k));
+    if(a == "s" + k, applyStart(k));
+  ));
+);
+
+// ---------------------------------------------------------------------
+// TITLE and FOOTER
+// ---------------------------------------------------------------------
+// title (shrinks so it never collides with the Link | DE | EN chips)
+drawTitle() := (
+  regional(wEN, wDE, wLK, wTH, availPx, tsz, ty);
+  ty = layYt - 0.9;
+  wEN = uiChip((layXr - cdMg, ty), "EN", lang == "en", "en", "right");
+  wDE = uiChip((layXr - cdMg - wEN - 0.1, ty), "DE", lang == "de", "de", "right");
+  wLK = uiChip((layXr - cdMg - wEN - wDE - 0.2, ty), "Link", false, "link", "right");
+  wTH = uiChip((layXr - cdMg - wEN - wDE - wLK - 0.3, ty), if(themeCur == 1, "☀", "☾"), false, "theme", "right");
+  availPx = (layXr - cdMg - wEN - wDE - wLK - wTH - 0.3 - 0.3 - (layXl + cdMg)) * screenresolution();
+  tsz = min(fs(fsT), availPx/(0.62*length(tr("title"))));
+  drawtext((layXl+cdMg, ty), tr("title"), size -> tsz, bold -> true, color -> thBlue);
+);
+
+// credits (1 or 2 lines of funding text, depending on the available width)
+drawFooter() := (
+  regional(credits, funding1, funding2, fx, fy);
+  credits="Max Hoffmann | max.hoffmann@math.upb.de | v2026Oct05";
+  funding1="Supported by the Deutsche Forschungsgemeinschaft (DFG, German Research Foundation)";
+  funding2="– Project-ID 491392403 – TRR 358";
+  fx = layFootX;  fy = layFootY;
+  if(layFootLines == 2,
     (
-      downP.xy   = c + (0, r*sqrt(.5));
-      upP.xy = c + (r*sqrt(.5), 0);
+      drawtext((fx, fy+0.27), credits, color -> thBlue, align -> "right", size -> fs(12));
+      drawtext((fx, fy), funding1 + " " + funding2, color -> thBlue, align -> "right", size -> fs(10));
     ),
     (
-      upP.xy = c + min(r, |c,upP.xy|) * (upP - c)/|c,upP.xy|;
-      downP.xy = c + sqrt(abs(r^2 - |c, upP|^2)) *
-                        if(|c, downP| > 0.0001, (downP - c)/|c, downP|, [1, 0]);
+      drawtext((fx, fy+0.51), credits, color -> thBlue, align -> "right", size -> fs(12));
+      drawtext((fx, fy+0.24), funding1, color -> thBlue, align -> "right", size -> fs(10));
+      drawtext((fx, fy), funding2, color -> thBlue, align -> "right", size -> fs(10));
     )
   );
+);
+
+// ---------------------------------------------------------------------
+// CARD 1: sliders for coin bias p and phase phi
+// ---------------------------------------------------------------------
+// slider values snap to multiples of 1/4 when closer than 0.03
+snapFrac(t) := (
+  regional(best, d, v);
+  best = t;  d = 2;
+  forall([0, 0.25, 0.5, 0.75, 1], v, if(abs(t - v) < d, (d = abs(t - v); best = v)));
+  if(d < 0.03, best, t)
+);
+
+phiTickLabel(s) := if(s==0,"0", if(s==0.25,"π/2", if(s==0.5,"π", if(s==0.75,"3π/2","2π"))));
+
+// x = card centre, yt = card top, l = rail length
+makeslider(x, yt, l) := (
+  regional(lx, yP, yPhi, sP, eP, sPhi, ePhi, t, tPhi, s);
+  lx = x - 0.5*cdInW() + cdPad;               // left edge of the card content
+
+  // ---------- Bias p ----------
+  yP = yt - 2.05;
+  sP = (x - 0.5*l, yP);
+  eP = (x + 0.5*l, yP);
+  draw(sP, eP, color->colSlP, size->2);
+  forall([0, 0.25, 0.5, 0.75, 1], s, cdTick(sP.x + s*l, yP, format(s, 2), colSlP));
+
+  // handle: clamped to the rail, snapping
+  slCoinpP.color = colSlP;
+  slCoinpP.y = yP;
+  slCoinpP.x = min(eP.x, max(sP.x, slCoinpP.x));
+  t = snapFrac(|slCoinpP, sP| / l);
+  slCoinpP.x = sP.x + t*l;
+  coinP = t;
+  stP = t;
+
+  drawtext((lx, yt - 1.05), tr("coinBiasTitle") + " = " + uiFmt2(coinP), align->"left", size->fs(fsLab), bold->true, color->colSlP);
+  drawtext((lx, yt - 1.34), tr("coinBiasHigh"), align->"left", size->fs(fsTxt), color->thMuted);
+  drawtext((lx, yt - 1.61), tr("coinBiasLow"),  align->"left", size->fs(fsTxt), color->thMuted);
+
+  // ---------- Phase φ (rail = 0 .. 2π, π/2 snaps) ----------
+  yPhi = yt - 4.0;
+  sPhi = (x - 0.5*l, yPhi);
+  ePhi = (x + 0.5*l, yPhi);
+  draw(sPhi, ePhi, color->colSlPhi, size->2);
+  forall([0, 0.25, 0.5, 0.75, 1], s, cdTick(sPhi.x + s*l, yPhi, phiTickLabel(s), colSlPhi));
+
+  slCoinPhiP.color = colSlPhi;
+  slCoinPhiP.y = yPhi;
+  slCoinPhiP.x = min(ePhi.x, max(sPhi.x, slCoinPhiP.x));
+  tPhi = snapFrac(|slCoinPhiP, sPhi| / l);
+  slCoinPhiP.x = sPhi.x + tPhi*l;
+  coinRot = 2*pi*tPhi;
+  stPhi = tPhi;
+
+  drawtext((lx, yt - 2.88), tr("coinPhaseTitle") + " = " + formatPi(coinRot), align->"left", size->fs(fsLab), bold->true, color->colSlPhi);
+  drawtext((lx, yt - 3.14), tr("coinPhaseDesc"), align->"left", size->fs(fsTxt), color->thMuted);
+  drawtext((lx, yt - 3.4), tr("coinPhaseReal"), align->"left", size->fs(fsTxt), color->thMuted);
+  drawtext((lx, yt - 3.66), tr("coinPhaseNote"), align->"left", size->fs(fsTxt), color->thMuted);
+
+  coin = coinGen(coinP, coinRot);          // refresh the coin matrix from the sliders
+);
+
+// ---------------------------------------------------------------------
+// CARD 2: symbolic and numeric coin matrix (the preset chips are drawn by the caller)
+// ---------------------------------------------------------------------
+// join phase factor ph ("", "-", "i", "-i", "e^{..}") with magnitude s ("0", "1", "\sqrt{..}")
+uiJoin(ph, s) := (
+  if(s == "0", "0",
+    if(ph == "", s,
+      if(ph == "-", "-" + s,
+        if(s == "1", ph, ph + s)
+      )
+    )
+  )
+);
+
+// TeX of the coin matrix with substituted values
+coinNumTeX(p, phi) := (
+  regional(sp, sq, pre, tk, f, eP, eM, B, C, D);
+  pre = "";
+  if(abs(p) < 1e-6, (sp = "0"; sq = "1"),
+    if(abs(p - 1) < 1e-6, (sp = "1"; sq = "0"),
+      if(abs(p - .5) < 1e-6, (sp = "1"; sq = "1"; pre = "\tfrac{1}{\sqrt2}"),
+        (sp = "\sqrt{" + uiFmt2(p) + "}"; sq = "\sqrt{" + uiFmt2(1-p) + "}")
+      )
+    )
+  );
+  tk = mod(round((phi/pi)*100)/100, 2);
+  f  = uiFmt2(tk);
+  if(tk < 1e-9 % abs(tk-2) < 1e-9, (eP = ""; eM = ""),
+    if(abs(tk-1) < 1e-9, (eP = "-"; eM = "-"),
+      if(abs(tk-.5) < 1e-9, (eP = "i"; eM = "-i"),
+        if(abs(tk-1.5) < 1e-9, (eP = "-i"; eM = "i"),
+          (eP = "e^{i\,"  + f + "\pi}"; eM = "e^{-i\," + f + "\pi}")
+        )
+      )
+    )
+  );
+  B = uiJoin(eP, sq);  C = uiJoin(eM, sq);
+  D = if(sp == "0", "0", "-" + sp);
+  "$U=" + pre + "\begin{pmatrix}" + sp + "&" + B + "\\" + C + "&" + D + "\end{pmatrix}$"
+);
+
+drawCoinMatrix(x, yt) := (
+  drawtext((x, yt - 1.5),
+    "$U(p,\phi)=\begin{pmatrix}\sqrt{p} & e^{i\phi}\sqrt{1-p}\\ e^{-i\phi}\sqrt{1-p} & -\sqrt{p}\end{pmatrix}$",
+    align->"mid", size->fs(14), color->colTeXCoin);
+  // numeric matrix with the current values
+  drawtext((x, yt - 2.4), coinNumTeX(coinP, coinRot),
+           align->"mid", size->fs(14), color->colTeXCoin);
+);
+
+// ---------------------------------------------------------------------
+// CARD 3: start-state circle. Two knobs on the unit circle give the amplitudes of |←⟩ (red) and |→⟩ (blue);
+// the blue knob is constrained so that |up|^2 + |down|^2 = 1 (the state stays normalised).
+// ---------------------------------------------------------------------
+// c = circle centre (point IC), r = radius. Sets the global start state "particle" and the remembered knob positions.
+initphase(c, r) := (
+  regional(dUp, zUp, zDown, complexUp, complexDown, thetaUp, thetaDown, dTheta, kPre, cxy, rx, dtTxt);
+  // up knob: stays inside the circle; down knob: on the circle of radius sqrt(r^2 - |up|^2)
+  dUp = |c,upP.xy|;
+  upP.xy = if(dUp > 1e-6, c + min(r, dUp) * (upP.xy - c)/dUp, c);   // |→⟩: up knob sits in the centre
+  downP.xy = c + sqrt(abs(r^2 - |c, upP|^2)) *
+                    if(|c, downP| > 0.0001, (downP - c)/|c, downP|, [1, 0]);
 
   upP.color = colUp;    downP.color = colDown;
-  upP.size  = 5;        downP.size  = 5;
+  // coincident knobs (e.g. (|←⟩+|→⟩)/√2): red knob big underneath, blue knob small on top
+  // (downP comes later in the geometry list, so it is drawn and picked on top)
+  upP.size = tpt(if(|upP.xy, downP.xy| < 0.15, 8, 5));
+  downP.size = tpt(if(|upP.xy, downP.xy| < 0.15, 4, 5));
 
-  // node
   fillcircle(c, r, color->cLightGray, alpha->.1);
-  drawcircle(c, r, color->cDarkGray,  alpha->.5);
-
-  // spokes
-  draw(c, upP,   color->colUp,   size->2);
+  drawcircle(c, r, color->thCircLine,  alpha->.5);
+  draw(c, upP,   color->colUp,   size->2);       // spokes
   draw(c, downP, color->colDown, size->2);
 
   // map knob positions to complex amplitudes on the unit circle
   zUp   = (upP.xy   - c) / r;
   zDown = (downP.xy - c) / r;
-
+  zUpS = zUp;  zDownS = zDown;      // remembered for layout changes
   complexUp   = zUp.x   + i*zUp.y;
   complexDown = zDown.x + i*zDown.y;
 
-  // phases (CCW), relative phase
-  thetaUp   = arctan2(im(complexUp),   re(complexUp));
-  thetaDown = arctan2(im(complexDown), re(complexDown));
+  // phases (CCW) and relative phase; CindyScript: arctan2(x, y) = angle of the point (x, y)
+  thetaUp   = arctan2(re(complexUp),   im(complexUp));
+  thetaDown = arctan2(re(complexDown), im(complexDown));
   dTheta    = wrapPi(thetaDown - thetaUp);
 
-  // build the start particle
+  // the start particle; exact preset values when the knobs sit on a preset (removes projection round-off)
   particle       = [complexUp, complexDown];
+  forall(1..4, kPre, if(startActive(kPre),
+    particle = [startPre_kPre_1_1 + i*startPre_kPre_1_2, startPre_kPre_2_1 + i*startPre_kPre_2_2]));
   initState_mid  = particle;
 
-  // -------- labels --------
-  // layout gaps relative to radius
-  gapTop    = 0.5*r;     // space above the circle
-  gapBottom = 0.4*r;     // space below the circle
-
-  // title centered above
-  drawtext(c + (0, r + gapTop),
-           tr("initPhaseTitle") + "
-" + tr("initPhaseDesc"),
-           align->"center", size->14, color->cAnthracite);
-
-  // relative phase centered below (Δθ in π-Notation)
-  drawtext(c + (0, -r - gapBottom),
-           "Δθ ≈ " + formatPi(dTheta),
-           align->"center", size->14, color->cSFBOrangeText);
+  // labels: component legend right of the circle, relative phase under it
+  cxy = c.xy;  rx = cxy_1 + r + 0.3;
+  drawtext((rx, cxy_2 + 0.3), "● |←⟩", align->"left", size->fs(fsLab), bold->true, color->colUp);
+  drawtext((rx, cxy_2 - 0.05), "● |→⟩", align->"left", size->fs(fsLab), bold->true, color->colDown);
+  // relative phase is undefined if one amplitude vanishes
+  dtTxt = if(abs(complexUp) < 1e-6 % abs(complexDown) < 1e-6, "Δθ: –", "Δθ ≈ " + formatPi(dTheta));
+  drawtext((cxy_1, cxy_2 - r - 0.38), dtTxt, align->"center", size->fs(fsLab + 1), bold->true, color->thFg);
 );
 
-initphase(IC, initphaseR, true);
-maketitle();
-makefooter()
-;
+// ---------------------------------------------------------------------
+// CARD 4: N slider and q slider of the Galton board
+// ---------------------------------------------------------------------
+// N slider (rail centre x, top yt of the card)
+makeNslider(x, yt, l) := (
+  regional(lx, yN, sN, eN, M, stepLbl, kMax, k, tNraw, Nraw, tN, kClr);
+  lx = x - 0.5*cdInW() + cdPad;
+  yN = yt - 1.5;
+  sN = (x - 0.5*l, yN);
+  eN = (x + 0.5*l, yN);
+  draw(sN, eN, color->colSlN, size->2);
 
+  // ticks/labels: 0, 50, 100, ... (M = maxmaxSteps)
+  M = nLimit();  stepLbl = 50;      // rail range: 0..N limit of the current mode
+  kMax = floor(M/stepLbl);
+  if(animOn,
+    forall(0..M, k, if(mod(k, 5) == 0, cdTick(sN.x + (k/M)*l, yN, "" + k, colSlN), draw((sN.x + (k/M)*l, yN + 0.06), (sN.x + (k/M)*l, yN - 0.06), color->colSlN))),   // tick every step, label every 5
+    forall(0..kMax, k, cdTick(sN.x + (k*stepLbl/M)*l, yN, "" + (k*stepLbl), colSlN)));
+  if(!animOn & mod(M, stepLbl) != 0, cdTick(eN.x, yN, "" + M, colSlN));
+
+  // handle + integer snap
+  slMaxStepP.color = colSlN;
+  slMaxStepP.y = yN;
+  slMaxStepP.x = min(eN.x, max(sN.x, slMaxStepP.x));
+  tNraw = |slMaxStepP, sN|/l;
+  Nraw  = min(M, max(0, round(tNraw * M)));
+  tN    = Nraw/M;
+  slMaxStepP.x = sN.x + tN*l;
+  // N decreased: forget measurement flags of rows that are no longer visible
+  // (position rows > N, coin rows > N); the key change in msUpdate() resets caches
+  if(Nraw < stN,
+    forall((Nraw + 1)..maxmaxSteps, kClr, (
+      msRowsU_kClr = 0;
+      msCoinU_(kClr + 1) = 0;
+    ))
+  );
+  maxSteps = Nraw;
+  stN = Nraw;
+
+  drawtext((lx, yt - 1.05), tr("stepsTitle") + " N = " + maxSteps, align->"left", size->fs(fsLab), bold->true, color->colSlN);
+);
+
+// q slider of the Galton board (only drawn while the board is on; its space is always reserved)
+makeQslider(x, yt, l) := (
+  regional(lx, yq, qS, qE, kq, t, lab, val, szq, wTot);
+  if(!gauss,
+    (slQP.xy = (layXl - 20, layYt + 20)),     // handle parked outside the window
+    (
+      lx = x - 0.5*cdInW() + cdPad;
+      yq = yt - 3.3;
+      qS = (x - 0.5*l, yq);  qE = (x + 0.5*l, yq);
+      draw(qS, qE, color->colGauss, size->2);
+      forall([0, 0.25, 0.5, 0.75, 1], kq, cdTick(qS.x + kq*l, yq, if(kq == 0, "0", if(kq == 1, "1", format(kq, 2))), colGauss));
+      slQP.color = colGauss;
+      slQP.y = yq;
+      slQP.x = min(qE.x, max(qS.x, slQP.x));
+      t = snapFrac(|slQP, qS| / l);
+      slQP.x = qS.x + t*l;
+      stQ = t;
+      lab = tr("galtonQ");  val = "q = " + uiFmt2(stQ);
+      // label (left) and value (right) on one line; the font shrinks if both do not fit the card
+      wTot = 0.58*(length(lab) + length(val) + 1);
+      szq = min(fs(fsTxt), (cdInW() - 2*cdPad)*screenresolution()/wTot);
+      drawtext((lx, yt - 2.9), lab, align->"left", size->szq, color->thMuted);
+      drawtext((lx + cdInW() - 2*cdPad, yt - 2.9), val, align->"right", size->szq, bold->true, color->colGauss);
+    )
+  );
+);
+
+// ---------------------------------------------------------------------
+// MEASUREMENT PANEL (card 5, always reserved, drawn only while a measurement kind is on).
+// Three sections: "what is measured" (a), "runs" (b), "legend" (c). Placement by card width:
+// 3 columns (flat row, a | b | c), 2 columns (a over b | c), 1 column (a, b, c stacked).
+// All rows sit on one grid: row pitch msRH, label column, chips of equal height.
+// ---------------------------------------------------------------------
+msRH0 = 0.55;   // header baseline -> first row baseline
+msRH = 0.62;    // row pitch (chip height + gap)
+
+// strict grid: ONE label column (right-aligned labels) and ONE content column (all chips start at the
+// same x). Chips of a group share a width: msGU for the small chips (all / none / +1 / +100), msGS = 2*msGU + gap for
+// the spanning chips (re-roll, reset). Set once per frame in msDrawPanel().
+msGP = 0.12;  msGU = 0.9;  msGS = 1.9;
+msSecW = 3;                                  // width of section b (set by msDrawPanel; the speed rail uses it)
+msBH() := msRH0 + 2*msRH;      // height of section b below its header
+
+// measurement card: columns (3 / 2 / 1) and, for a full-width row, its height
+layMsCols(wc) := if(wc >= cdMs3W, 3, if(wc >= cdMs2W, 2, 1));
+layMsCardH(wc) := if(wc >= cdMs3W, cdMsH, if(wc >= cdMs2W, cdCH, cdMs1H));
+
+msHdr(x, y, txt) := drawtext([x, y], txt, align->"left", size->fs(fsTick + 1), bold->true, color->colMs);
+
+// one legend row. kinds: 1 filled square, 2 dot, 3 triangle, 4 grey box (coin fixed), 5 filled bar of 64 % width (violet ensemble),
+// 6 filled bar of 40 % width (green Galton board). Swatches imitate the drawing in the histogram.
+msLegRow(x, y, kind, col, txt, maxW) := (
+  regional(sz, hs, cy);
+  sz = min(fs(10), maxW*screenresolution()/(0.58*length(txt)));
+  hs = 0.08;  cy = y + 0.3*sz/screenresolution();
+  if(kind == 1, fillpoly([[x-hs,cy-hs],[x+hs,cy-hs],[x+hs,cy+hs],[x-hs,cy+hs]], color->col, alpha->1));
+  if(kind == 5, fillpoly([[x-0.64*hs,cy-hs],[x+0.64*hs,cy-hs],[x+0.64*hs,cy+hs],[x-0.64*hs,cy+hs]], color->col, alpha->.85));
+  if(kind == 6, fillpoly([[x-0.4*hs,cy-hs],[x+0.4*hs,cy-hs],[x+0.4*hs,cy+hs],[x-0.4*hs,cy+hs]], color->col, alpha->1));
+  if(kind == 2, (fillcircle([x,cy], hs*0.8, color->thPaper, alpha->1); fillcircle([x,cy], hs*0.65, color->col, alpha->1)));
+  if(kind == 4, (
+    fillpoly([[x-hs,cy-hs],[x+hs,cy-hs],[x+hs,cy+hs],[x-hs,cy+hs]], color->(.55,.55,.55), alpha->.5);
+    draw([x-hs,cy-hs],[x+hs,cy-hs], color->(.55,.55,.55), size->1);
+    draw([x+hs,cy-hs],[x+hs,cy+hs], color->(.55,.55,.55), size->1);
+    draw([x+hs,cy+hs],[x-hs,cy+hs], color->(.55,.55,.55), size->1);
+    draw([x-hs,cy+hs],[x-hs,cy-hs], color->(.55,.55,.55), size->1);
+  ));
+  if(kind == 7, (
+    draw([x-hs,cy-hs],[x-0.3*hs,cy-hs], color->colUp, size->1.3);  draw([x+0.3*hs,cy-hs],[x+hs,cy-hs], color->colDown, size->1.3);
+    draw([x-hs,cy+hs],[x-0.3*hs,cy+hs], color->colUp, size->1.3);  draw([x+0.3*hs,cy+hs],[x+hs,cy+hs], color->colDown, size->1.3);
+  ));
+  if(kind == 3, (
+    fillpoly([[x-hs-0.02,cy-hs-0.025],[x+hs+0.02,cy-hs-0.025],[x,cy+hs+0.04]], color->thPaper, alpha->1);
+    fillpoly([[x-hs,cy-hs],[x+hs,cy-hs],[x,cy+hs]], color->col, alpha->1);
+    drawpoly([[x-hs,cy-hs],[x+hs,cy-hs],[x,cy+hs]], color->thFg, size->1);
+  ));
+  drawtext([x + 0.22, y], txt, align->"left", size->sz, color->thFg);
+);
+
+// section a: returns the baseline of its last row
+msSecA(x, y, wl) := (
+  regional(yy, nr, nc, cx0);
+  msHdr(x, y, tr("msSecWhat"));
+  yy = y;  cx0 = x + wl + 0.15;
+  nr = if(maxSteps > 0, sum(apply(1..maxSteps, k, msRowsU_k)), 0);
+  nc = sum(apply(1..(maxSteps + 1), k, msCoinU_k));
+  uiForceW = msGU;
+  // "alle" / "keine" show the state: all rows (<= N) of that kind measured / none; neither if set individually
+  if(msPosOn, (
+    yy = yy - if(yy == y, msRH0, msRH);
+    drawtext([x + wl, yy], tr("msPosLab"), align->"right", size->fs(fsTxt), bold->true, color->colMs);
+    uiChipC([cx0, yy], tr("msAll"), maxSteps > 0 & nr == maxSteps, "msAll", "left", colMs, fsTxt);
+    uiChipC([cx0 + msGU + msGP, yy], tr("msNone"), nr == 0, "msNone", "left", colMs, fsTxt);
+  ));
+  if(msCoinOn, (
+    yy = yy - if(yy == y, msRH0, msRH);
+    drawtext([x + wl, yy], tr("msCoinLab"), align->"right", size->fs(fsTxt), bold->true, color->colMs);
+    uiChipC([cx0, yy], tr("msAll"), nc == maxSteps + 1, "mcAll", "left", colMs, fsTxt);
+    uiChipC([cx0 + msGU + msGP, yy], tr("msNone"), nc == 0, "mcNone", "left", colMs, fsTxt);
+  ));
+  uiForceW = 0;
+  yy
+);
+
+// section b: single run + collecting (three grid rows); returns the baseline of its last row
+msSecB(x, y, wl) := (
+  regional(yy, cx0);
+  msHdr(x, y, tr("msSecRuns"));
+  cx0 = x + wl + 0.15;
+  yy = y - msRH0;
+  drawtext([x + wl, yy], tr("msSingle"), align->"right", size->fs(fsTxt), bold->true, color->colMs);
+  uiForceW = msGS;
+  uiChipC([cx0, yy], tr("msRoll"), false, "msRoll", "left", colMs, fsTxt);
+  yy = yy - msRH;
+  drawtext([x + wl, yy], tr("msMany"), align->"right", size->fs(fsTxt), bold->true, color->colMs);
+  uiForceW = msGU;
+  uiChipC([cx0, yy], "+1", false, "ms1", "left", colMs, fsTxt);
+  uiChipC([cx0 + msGU + msGP, yy], "+100", false, "ms100", "left", colMs, fsTxt);
+  yy = yy - msRH;
+  drawtext([x + wl, yy], "n = " + msN + if(msPending > 0, " …", ""), align->"right", size->fs(fsTxt), bold->true, color->colMs);
+  uiForceW = msGS;
+  uiChipC([cx0, yy], tr("msReset"), false, "msReset", "left", colMs, fsTxt);
+  uiForceW = 0;
+  yy
+);
+
+// section c: legend rows exactly as drawn in the histogram (swatch column at the section's left edge, texts aligned);
+// only the rows that currently apply. yBot: baseline of the lowest toggle chip (they are anchored at the bottom of the
+// card; if the legend is longer they follow it instead; yBot = 1e9 stacks them directly under the legend).
+msSecL(x, y, lw, yBot) := (
+  regional(yy, ds, lastM, anyM, xs, tw, wt, yE, yM);
+  msHdr(x, y, tr("msSecLeg"));
+  yy = y - msRH0;  ds = 0.32;  xs = x + 0.1;  tw = lw - 0.32;
+  anyM = msAnyMeas();
+  lastM = anyM & maxSteps > 0 & msRows_maxSteps == 1;
+  if(lastM,
+    (msLegRow(xs, yy, 3, thOrange, tr("msLegOut"), tw); yy = yy - ds),
+    (msLegRow(xs, yy, 1, colDist, tr("msLegRun"), tw); yy = yy - ds)
+  );
+  if(anyM & msExOn, (msLegRow(xs, yy, 5, colMs, tr("msLegEns") + if(msEnsBusy, " " + tr("msBusy"), ""), tw); yy = yy - ds));
+  if(msN > 0, (msLegRow(xs, yy, 2, colMsDark, tr("msLegFreq"), tw); yy = yy - ds));
+  if(gauss, (msLegRow(xs, yy, 6, colGauss, tr("msLegGalton"), tw); yy = yy - ds));
+  if(msFixAny() & msPosOn & msCoinOn, (msLegRow(xs, yy, 4, colMs, tr("msLegFix"), tw); yy = yy - ds));
+  if(msMiniOn, (msLegRow(xs, yy, 1, colDist, tr("msLegMini"), tw); yy = yy - ds));
+  if(msCoinOn, (msLegRow(xs, yy, 7, colUp, tr("msLegFrame"), tw); yy = yy - ds));
+  // display toggles (violet chips of equal width, one column, left edge = section edge)
+  wt = max(uiChipW(tr("msExChip"), fsTxt), uiChipW(tr("msMiniChip"), fsTxt));
+  yE = min(yy - 0.3, yBot + msRH);
+  yM = yE - msRH;
+  uiForceW = wt;
+  uiChipC([x, yE], tr("msExChip"), msExOn, "mx", "left", colMs, fsTxt);
+  uiChipC([x, yM], tr("msMiniChip"), msMiniOn, "mm", "left", colMs, fsTxt);
+  uiForceW = 0;
+);
+
+msDrawPanel() := (
+  regional(x0, yt, wc, hc, nCol, gt, colw, xc1, xc2, xc3, y0, wl, yy, ye, yb0, yB, t);
+  x0 = layCard_5_1;  yt = layCard_5_2;  wc = layCard_5_3;  hc = layCard_5_4;
+  nCol = layMsCols(wc);
+  gt = 0.3;
+  colw = (wc - 2*cdPad - (nCol - 1)*gt)/nCol;
+  xc1 = x0 + cdPad;  xc2 = xc1 + colw + gt;  xc3 = xc2 + colw + gt;
+  y0 = yt - 1.0;
+  // label column: the longest label (current language); chip widths: one unit for all small chips
+  wl = 0.6*fs(fsTxt)*max(apply([tr("msPosLab"), tr("msCoinLab"), tr("msSingle"), tr("msMany"), "n = 000 …"], t, length(t)))/screenresolution() + 0.1;
+  msGU = max(0.6, max(apply([tr("msAll"), tr("msNone"), "+100"], t, uiChipW(t, fsTxt))));
+  msGU = max(msGU, (max(uiChipW(tr("msRoll"), fsTxt), uiChipW(tr("msReset"), fsTxt)) - msGP)/2);
+  msGS = 2*msGU + msGP;
+  msSecW = colw;
+  ye = yt - hc + 0.2;                                  // lower end of vertical separators
+  yb0 = yt - hc + 0.4;                                 // baseline of the lowest chip row (bottom anchor)
+  if(nCol == 3,
+    (
+      msSecA(xc1, y0, wl);
+      msSecB(xc2, y0, wl);
+      draw([xc3 - gt/2, yt - 0.85], [xc3 - gt/2, ye], color->colMs, alpha->.35, size->1);
+      msSecL(xc3, y0, x0 + wc - cdPad - xc3, yb0);
+    ),
+    if(nCol == 2,
+      (
+        // left column: "what is measured" at the top, "runs" anchored at the bottom; right column: legend on top, toggles at the bottom
+        yy = msSecA(xc1, y0, wl);
+        yB = min(yy - 0.6, yb0 + msBH());
+        msSecB(xc1, yB, wl);
+        draw([xc2 - gt/2, yt - 0.85], [xc2 - gt/2, ye], color->colMs, alpha->.35, size->1);
+        msSecL(xc2, y0, x0 + wc - cdPad - xc2, yb0);
+      ),
+      (
+        yy = msSecA(xc1, y0, wl);
+        yy = msSecB(xc1, yy - 0.6, wl);
+        draw([xc1, yy - 0.5], [xc1 + colw, yy - 0.5], color->colMs, alpha->.35, size->1);
+        msSecL(xc1, yy - 0.85, colw, 1e9);
+      )
+    )
+  );
+);
+
+// ---------------------------------------------------------------------
+// ANIMATION CARD (card 5 slot in animation mode): speed slider (exponential, 12 s ... 0.8 s per step),
+// pause / resume chip and a hint that measurements are not available. The content block is centred vertically.
+// ---------------------------------------------------------------------
+makeSpeedslider(x, yS, l) := (
+  regional(sS, sE, tSp, labelY);
+  sS = (x - 0.5*l, yS);  sE = (x + 0.5*l, yS);
+  draw(sS, sE, color->colSlN, size->2);
+  slSpP.color = colSlN;
+  slSpP.y = yS;
+  // the rail moved (layout, panel variant): re-place the handle from the stored fraction
+  if(abs(sS_1 - spX0) > 1e-9 % abs(l - spL) > 1e-9, (slSpP.x = sS_1 + stSp*l; spX0 = sS_1; spL = l));
+  slSpP.x = min(sE_1, max(sS_1, slSpP.x));
+  tSp = abs(slSpP.x - sS_1)/l;
+  stSp = tSp;                                          // animLength / waittime are derived from stSp in animTick
+  labelY = yS - 0.5;                                   // slow (left) | seconds per step (centre) | fast (right)
+  drawtext((sS_1, labelY), tr("animSlow"), align->"left", size->fs(fsTxt), color->thMuted);
+  drawtext((x, labelY), format(animLength, 1) + tr("animPerStep"), align->"mid", size->fs(fsTxt), bold->true, color->colSlN);
+  drawtext((sE_1, labelY), tr("animFast"), align->"right", size->fs(fsTxt), color->thMuted);
+);
+
+animDrawPanel() := (
+  regional(x, yS);
+  x = cdCx(5);  yS = cdTop(5) - 1.5 - max(0, (layCard_5_4 - 3.9)/2);       // content block centred vertically
+  makeSpeedslider(x, yS, layRail());
+  uiChipC((x, yS - 1.1), if(animrun, tr("animPause"), tr("animResume")), !animrun, "anim", "mid", colNeutral, fsTxt);
+  drawtext((x, yS - 1.9), tr("animNoMs"), align->"mid",
+    size->min(fs(fsTxt), (layCard_5_3 - 2*cdPad)*screenresolution()/(0.58*length(tr("animNoMs")))), color->thMuted);
+);
+
+// tab bar of the tab layout (phones): 5 equal chips, active one filled; actions "tab1".."tab5"
+drawTabBar() := (
+  regional(labs, cols, gp, wc, fz, mx, kk, szw, chip0, lab, nR, per, rh, row, nIn, wr, ci, ex);
+  labs = [tr("tabCoin"), tr("tabMatrix"), tr("tabStart"), tr("tabWalk"), if(animOn, tr("cardAnim"), tr("tabMs"))];
+  cols = [colCoinCard, colCoinCard, colNeutral, colNeutral, if(animOn, colNeutral, colMs)];
+  gp = 0.12;
+  nR = layTabRows;  per = if(nR == 2, 3, 5);                          // chips in the first row
+  rh = (layTabR_4 - (nR - 1)*gp)/nR;                                  // chip row height
+  wc = (layTabR_3 - (per - 1)*gp)/per;                                // narrowest chip
+  mx = max(apply(labs, lab, length(lab)));
+  fz = min(15, wc*screenresolution()/(layKs*(0.6*mx + 1.2)));       // font (in design px) so that the longest label fits
+  szw = fs(fz)/screenresolution();
+  ex = if(touchOn & nR == 1, min(0.3, max(0, cdTouchChipPx/screenresolution() - rh)), 0);   // touch: grow into the gaps above / below the bar
+  rh = rh + ex;
+  chip0 = cdChipH;  cdChipH = rh;                                     // taller chips for fingers
+  uiNoGrow = true;
+  forall(1..5, kk,
+    row = floor((kk - 1)/per);  ci = kk - 1 - row*per;
+    nIn = if(row == 0, per, 5 - per);                                 // chips in this row (they share its width)
+    wr = (layTabR_3 - (nIn - 1)*gp)/nIn;
+    uiForceW = wr;
+    uiChipC((layTabR_1 + ci*(wr + gp), layTabR_2 - ex/6 + (nR - 1 - row)*(rh + gp) + (rh - 0.7*szw)/2), labs_kk, layTab == kk, "tab" + kk, "left", cols_kk, fz));
+  uiForceW = 0;  cdChipH = chip0;  uiNoGrow = false;
+);
+
+// ---------------------------------------------------------------------
+// all cards, in reading order: coin -> start -> walk -> measurement (called every frame)
+// (tab layout: only the selected card is drawn, so the handles of hidden cards are neither moved nor shown)
+// ---------------------------------------------------------------------
+drawCards() := (
+  regional(msFz, msW1, msW2, msX0, msOffT);
+  if(layTabs, drawTabBar());
+  if(cardShown(1), (
+    cdFrame(1, tr("cardCoin"), colCoinCard);
+    makeslider(cdCx(1), cdTop(1), layRail());
+  ));
+  if(cardShown(2), (
+    cdFrame(2, tr("cardMatrix"), colCoinCard);
+    drawCoinMatrix(cdCx(2), cdTop(2));
+    drawCoinChips(cdCx(2), cdTop(2) - 3.5);
+  ));
+  if(cardShown(3), (
+    cdFrame(3, tr("initPhaseTitle"), colNeutral);
+    initphase(IC, initphaseR);
+    drawStartChips(cdCx(3), cdTop(3) - 4.2);
+  ));
+  if(cardShown(4), (
+  cdFrame(4, tr("cardWalk"), colNeutral);
+  makeNslider(cdCx(4), cdTop(4), layRail());
+  // animation mode toggle: right edge at the card's inner right edge, centred on the title line, clear of the divider
+  uiForceW = uiChipW("✓ " + tr("animChip"), fsTxt);
+  uiOff = msOn;        // greyed out while a measurement kind is on
+  uiChipC((layCard_4_1 + layCard_4_3 - cdPad, layCard_4_2 - 0.42), if(animOn, "✓ ", "") + tr("animChip"), animOn, "animmode", "right", colNeutral, fsTxt);
+  uiOff = false;
+  uiForceW = 0;
+  // Galton board chip + its q slider (space of the slider is always reserved)
+  uiForceW = uiChipW("✓ " + tr("galtonChip"), fsTxt);
+  uiChipC((cdCx(4), cdTop(4) - 2.45), if(gauss, "✓ ", "") + tr("galtonChip"), gauss, "binom", "mid", colGauss, fsTxt);
+  uiForceW = 0;
+  makeQslider(cdCx(4), cdTop(4), layRail());
+  // measurement kinds: two independent toggles side by side (font shrinks if the labels are long)
+  msFz = min(fsTxt, (cdInW() - 0.7)*layKRef/(0.6*(length(tr("msChipPos")) + length(tr("msChipCoin"))) + 2.4));
+  msW1 = uiChipW(tr("msChipPos"), msFz);  msW2 = uiChipW(tr("msChipCoin"), msFz);
+  msX0 = cdCx(4) - (msW1 + msW2 + 0.12)/2;
+  uiOff = animOn;      // greyed out and not clickable in animation mode (flags are kept)
+  uiChipC((msX0, cdTop(4) - 4.25), tr("msChipPos"), msPosOn, "mp", "left", colMs, msFz);
+  uiChipC((msX0 + msW1 + 0.12, cdTop(4) - 4.25), tr("msChipCoin"), msCoinOn, "mk", "left", colMs, msFz);
+  uiOff = false;
+  ));
+  // measurement card: always framed (its space is reserved); content only while a measurement kind is on
+  if(cardShown(5), (
+  cdFrame(5, if(animOn, tr("cardAnim"), tr("msTitle")), if(animOn, colNeutral, colMs));
+  if(animOn, animDrawPanel(),
+  if(msOn,
+    msDrawPanel(),
+    (
+      msOffT = tr("msOffHint");
+      drawtext([layCard_5_1 + layCard_5_3/2, layCard_5_2 - layCard_5_4/2], msOffT, align->"mid",
+        size->min(fs(fsTxt), (layCard_5_3 - 2*cdPad)*screenresolution()/(0.58*length(msOffT))), color->(.55,.55,.55));
+    )));
+  ));
+);
+
+
+// =====================================================================
+// 8  LAYOUT COMPUTATION
+// =====================================================================
+// needed size [width, height] (world units) of arrangement k   (must match qwDims)
+layDims(k) := (
+  regional(c, r, pl, sm, bw, bh, wt, wn, hn, dW, dH);
+  c = layCands_k_1;  r = layCands_k_2;  pl = layCands_k_3;  sm = layCands_k_4;
+  bw = c*cdCW + (c - 1)*cdGap;  bh = r*cdCH + (r - 1)*cdGap;       // size of the card block
+  wt = cdWalkTop;
+  if(sm == 3 & pl == 1,
+    (
+      // T2: tabs beside the walk: left column = two-row tab bar + one card (width cdCW)
+      dW = 2*cdMg + cdCW + cdWalkGap + cdChkW + cdRm;
+      wn = dW + cdTabWalkW;
+      dH = wt + cdMg + cdFootH;
+      hn = max(cdTitleH + cdTabH2 + max(cdCH, layMsCardH(cdCW)) + cdMg, dH + cdWalkMinH);
+    ),
+  if(sm == 3,
+    (
+      // T1: tabs below the walk: one card (full width); its height is the larger of cdCH and the measurement card
+      dW = 2*cdMg + cdChkW + cdRm;
+      wn = max(dW + cdTabWalkW, 2*cdMg + cdCW);
+      hn = wt + cdWalkMinH + cdWalkGap + cdTabH + max(cdCH, layMsCardH(wn - 2*cdMg)) + 0.15 + cdFootH + cdMg;
+    ),
+  if(pl == 0,
+    (
+      // B, C: block below the walk, measurement card as a row under it
+      dW = 2*cdMg + cdChkW + cdRm;
+      wn = max(dW + cdWalkMinW, 2*cdMg + bw);
+      hn = wt + cdWalkMinH + cdWalkGap + cdHasMs*(layMsCardH(bw) + cdGap) + bh + 0.15 + cdFootH + cdMg;
+    ),
+    (
+      // A: block left of the walk, measurement card below the block
+      dW = 2*cdMg + bw + cdWalkGap + cdChkW + cdRm;
+      wn = dW + cdWalkMinW;
+      dH = wt + cdMg + cdFootH;
+      hn = max(cdTitleH + bh + cdGap + cdMsBelowH + cdMg, dH + cdWalkMinH);
+    )
+  )));
+  [wn, hn]
+);
+
+// kd(k): pixels per unit that arrangement k achieves in a window of wpx x hpx pixels   (must match qwKdOf)
+layKd(k, wpx, hpx) := (
+  regional(d);
+  d = layDims(k);
+  min(cdKdMax, min(wpx/d_1, hpx/d_2))
+);
+
+// The arrangement rule: returns [index, pixels per unit] for a window of wpx x hpx CSS pixels.
+// Decision chain (A, B, C, T1, T2: see section 3; an arrangement "fits" if its kd >= cdTabKd):
+//   1. landscape = (width >= height)
+//   2. narrower than cdTabMaxPx: tabs (landscape: T2 beside, portrait: T1 below)
+//   3. landscape: A if it fits, else T2
+//   4. portrait: B if it fits, else C if it fits, else T1
+// Tabs are the fallback and are used even when they stay small (kd is never below cdMinKd).
+// (the JS part mirrors this: qwKd / qwKdOf / qwDims must match layPick / layKd / layDims)
+layPick(wpx, hpx) := (
+  regional(land, sel);
+  land = (wpx >= hpx);
+  sel = if(land, 5, 4);                                              // tabs
+  if(wpx >= cdTabMaxPx,
+    if(land,
+      if(layKd(1, wpx, hpx) >= cdTabKd, sel = 1),
+      if(layKd(2, wpx, hpx) >= cdTabKd, sel = 2,
+        if(layKd(3, wpx, hpx) >= cdTabKd, sel = 3))));
+  [sel, max(cdMinKd, layKd(sel, wpx, hpx))]
+);
+
+// positions of the cards and the walk rectangle for the current window (called every frame)
+computeLayout() := (
+  regional(sb, w, h, kpx, pk, arr, lyC, lyR, lyPl, xA, xB, yBot, lyBH, walkX0, footAvail, fbH,
+           gy0, lyMsH, lyW, lyBW, lyX, lyT, wAv, hAv, cxW, kk, lyTabs, lyTB);
+  sb = screenbounds();
+  layXl = sb_1_1;  layYt = sb_1_2;
+  layXr = sb_3_1;  layYb = sb_3_2;
+  w = layXr - layXl;  h = layYt - layYb;
+  kpx = screenresolution();
+  layKs = max(.45, min(1.45, kpx/layKRef));
+  // before the canvas has a size (hidden tab, first frame) nothing may be computed: NaN would poison the handles
+  layOk = (kpx > 1) & (w > 2) & (h > 2);
+  if(!layOk, (layChanged = false; return()));
+
+  layChanged = (abs(layXl-layXlp) > 1e-6) % (abs(layXr-layXrp) > 1e-6)
+             % (abs(layYt-layYtp) > 1e-6) % (abs(layYb-layYbp) > 1e-6);
+  layXlp = layXl; layXrp = layXr; layYtp = layYt; layYbp = layYb;
+
+  pk = layPick(round(w*kpx), round(h*kpx));
+  arr = pk_1;
+  lyC = layCands_arr_1;  lyR = layCands_arr_2;  lyPl = layCands_arr_3;
+  lyTabs = layCands_arr_4 == 3;
+  if(lyTabs != layTabs, (layTabs = lyTabs; layChanged = true));
+
+  xA = layXl + cdMg;   xB = layXr - cdMg;   yBot = layYb + cdMg;
+  lyBH = lyR*cdCH + (lyR - 1)*cdGap;                  // height of the card block
+
+  // footer: how many text lines are needed for the available width
+  walkX0 = xA + lyC*cdCW + (lyC - 1)*cdGap + cdWalkGap;
+  footAvail = if(lyPl == 1, xB - walkX0, xB - xA);
+  layFootLines = if(footAvail >= 9.9, 2, 3);
+  layFootX = xB;  layFootY = yBot;
+  fbH = 0.2 + 0.26*layFootLines;
+
+  layTabRows = if(lyTabs & lyPl == 1, 2, 1);
+  if(lyTabs & lyPl == 1,
+    (
+      // tabs beside the walk: left column = two-row tab bar on top + the shared card slot (width cdCW); spare height centres it
+      lyMsH = max(cdCH, layMsCardH(cdCW));
+      gy0 = layYt - cdTitleH;
+      gy0 = gy0 - max(0, gy0 - yBot - cdTabH2 - lyMsH)/2;
+      lyTB = gy0 - cdTabH2;                                  // top of the card slot
+      layCard = apply(1..5, kk, [xA, lyTB, cdCW, lyMsH]);
+      layTabR = [xA, lyTB + 0.1, cdCW, cdTabH2 - 0.2];
+      layWalkBL = [walkX0 + cdChkW, yBot + fbH];
+      layWalkTR = [xB - cdRm, layYt - cdWalkTop];
+    ),
+  if(lyTabs,
+    (
+      // tabs: all five cards share one rectangle at full width under the walk; the tab bar sits between walk and card
+      lyW = xB - xA;
+      lyMsH = max(cdCH, layMsCardH(lyW));
+      lyT = yBot + fbH + 0.15 + lyMsH;
+      layCard = apply(1..5, kk, [xA, lyT, lyW, lyMsH]);
+      layTabR = [xA, lyT + 0.1, lyW, cdTabH - 0.2];
+      layWalkBL = [xA + cdChkW, lyT + cdTabH + cdWalkGap];
+      layWalkTR = [xB - cdRm, layYt - cdWalkTop];
+    ),
+  if(lyPl == 1,
+    (
+      // block left (cards at their natural width)
+      gy0 = layYt - cdTitleH;
+      // A: left column = card block + measurement card below it (same width, fills the remaining height up to
+      // cdMsBelowMaxH); spare height centres the whole column vertically; the walk takes the rest to the right
+      lyMsH = max(cdMsBelowH, min(cdMsBelowMaxH, gy0 - yBot - lyBH - cdGap));
+      gy0 = gy0 - max(0, gy0 - yBot - lyBH - cdGap - lyMsH)/2;
+      layCard = apply(1..4, kk,
+        [xA + mod(kk - 1, lyC)*(cdCW + cdGap), gy0 - floor((kk - 1)/lyC)*(cdCH + cdGap), cdCW, cdCH]);
+      layCard = layCard ++ [[xA, gy0 - lyBH - cdGap, lyC*cdCW + (lyC - 1)*cdGap, lyMsH]];
+      layWalkBL = [walkX0 + cdChkW, yBot + fbH];
+      layWalkTR = [xB - cdRm, layYt - cdWalkTop];
+    ),
+    (
+      // B, C: block under the walk, cards stretch to fill the width (up to cdCardMaxW); measurement card = full-width row under it
+      lyBH = lyR*cdCH + (lyR - 1)*cdGap;
+      lyW = min(cdCardMaxW, (xB - xA - (lyC - 1)*cdGap)/lyC);
+      lyBW = lyC*lyW + (lyC - 1)*cdGap;                 // width of the card block
+      lyX = (xA + xB)/2 - lyBW/2;
+      lyMsH = layMsCardH(lyBW);
+      lyT = yBot + fbH + 0.15 + lyMsH + cdGap + lyBH;   // top of the base-card block
+      layCard = apply(1..4, kk,
+        [lyX + mod(kk - 1, lyC)*(lyW + cdGap), lyT - floor((kk - 1)/lyC)*(cdCH + cdGap), lyW, cdCH]);
+      layCard = layCard ++ [[lyX, yBot + fbH + 0.15 + lyMsH, lyBW, lyMsH]];
+      layWalkBL = [xA + cdChkW, lyT + cdWalkGap];
+      layWalkTR = [xB - cdRm, layYt - cdWalkTop];
+    )
+  )));
+  // a very flat walk is not stretched further: narrow it symmetrically
+  wAv = layWalkTR_1 - layWalkBL_1;  hAv = layWalkTR_2 - layWalkBL_2;
+  if(cdWalkMaxAsp > 0 & hAv > 0 & wAv > cdWalkMaxAsp*hAv,
+    (
+      cxW = (layWalkBL_1 + layWalkTR_1)/2;
+      layWalkBL = [cxW - 0.5*cdWalkMaxAsp*hAv, layWalkBL_2];
+      layWalkTR = [cxW + 0.5*cdWalkMaxAsp*hAv, layWalkTR_2];
+    )
+  );
+  if(layCard != layCardP % layTab != layTabP, (layChanged = true; layCardP = layCard; layTabP = layTab));
+
+  // anchors of the handles
+  layPY = cdTop(1) - 2.05;                      // p rail
+  layPhY = cdTop(1) - 4.0;                      // phi rail
+  layICx = cdCx(3) - 0.85;  layICy = cdTop(3) - 1.95;
+  layNy = cdTop(4) - 1.5;                       // N rail
+  layQy = cdTop(4) - 3.3;                       // q rail (Galton board)
+
+  C1.xy  = layWalkBL;
+  C2.xy  = layWalkTR;
+  IC.xy  = (layICx, layICy);
+);
+
+// place all handles from the stored state (called after a layout change)
+// (tab layout: handles of hidden cards are parked outside the window; stored state is not touched, so nothing changes)
+layPark() := (layXl - 20, layYt + 20);
+tpt(sz) := if(touchOn, cdTouchPt*sz, sz);                       // handle size (bigger on touch devices)
+// touch flag from JS (coarse pointer): bigger handles (CindyJS has no separate grab tolerance: the point size is the grab radius)
+touchSet(f) := (
+  f = (f > 0);
+  if(f != touchOn,
+    (
+      touchOn = f;
+      slCoinpP.size = tpt(5);  slCoinPhiP.size = tpt(5);  slMaxStepP.size = tpt(5);  slSpP.size = tpt(5);  slQP.size = tpt(5);
+      layChanged = true;
+    ));
+);
+layRemap() := (
+  slCoinpP.xy   = if(cardShown(1), (cdCx(1) - 0.5*layRail() + stP*layRail(),   layPY), layPark());
+  slCoinPhiP.xy = if(cardShown(1), (cdCx(1) - 0.5*layRail() + stPhi*layRail(), layPhY), layPark());
+  slMaxStepP.xy = if(cardShown(4), (cdCx(4) - 0.5*layRail() + (stN/nLimit())*layRail(), layNy), layPark());
+  placeSpHandle();
+  placeQHandle();
+  upP.xy   = if(cardShown(3), (layICx, layICy) + initphaseR*zUpS, layPark());
+  downP.xy = if(cardShown(3), (layICx, layICy) + initphaseR*zDownS, layPark());
+);
+
+
+// =====================================================================
+// 9  URL PARAMETERS & LINK
+// The JS part only hands over location.search / location.hash (cfgFromUrl) and shows the link panel (qwShowLink).
+// Parsing the parameters and building the link are done here. Parameters (case-insensitive keys):
+//   lang=de|en  coin=hadamard|bleiben|tauschen|komplex  p=0..1  phi=0..2 (multiples of pi)
+//   start=left|right|plus|plusi  a=<complex> b=<complex> (start amplitudes, normalised)
+//   mode=anim  speed=0.8..12 (seconds per step, animation mode; N is limited to cdAnimMaxN)  N=0..100  galton=1  q=0..1  ort=alle|keine|1-10,15  qubit=...  mittel=1  zeilen=1
+// =====================================================================
+coinNames = ["hadamard", "bleiben", "tauschen", "komplex"];      // names of the coin presets (coinPre)
+startNames = ["left", "right", "plus", "plusi"];                  // names of the start presets (startPre)
+strUpper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+strLowerCase = "abcdefghijklmnopqrstuvwxyz";
+strDigits = "0123456789";
+// ASCII characters 32..126 in order (quote and backslash replaced by "?"), for %XX decoding
+strAscii = " !?#$%&'()*+,-./0123456789:;<=>?@" + strUpper + "[?]^_`" + strLowerCase + "{|}~";
+urlPairs = [];       // [[key, value], ...] of the current URL
+
+// ---- string helpers ----
+// NOTE: tokenize() would turn numeric pieces into numbers, so strings are split by hand
+strChars(s) := if(length(s) == 0, [], apply(1..length(s), k, substring(s, k - 1, k)));      // list of the characters ([] for "")
+strSplit(s, sep) := (       // split at a single-character separator (empty pieces are kept)
+  regional(parts, rest, p);
+  parts = [];  rest = s;  p = indexof(rest, sep);
+  while(p > 0, (
+    parts = parts ++ [substring(rest, 0, p - 1)];
+    rest = substring(rest, p, length(rest));
+    p = indexof(rest, sep);
+  ));
+  parts ++ [rest]
+);
+strLower(s) := (
+  regional(out, ch, k);
+  out = "";
+  forall(strChars(s), ch, (k = indexof(strUpper, ch); out = out + if(k > 0, substring(strLowerCase, k - 1, k), ch)));
+  out
+);
+strJoin(list, sep) := (
+  regional(out, k);
+  out = "";
+  if(length(list) > 0, forall(1..length(list), k, out = out + if(k > 1, sep, "") + list_k));
+  out
+);
+isDigits(s) := (
+  regional(ok, ch);
+  ok = length(s) > 0;
+  forall(strChars(s), ch, if(indexof(strDigits, ch) == 0, ok = false));
+  ok
+);
+// remove leading "?" / "#" characters
+urlStrip(s) := (
+  regional(t);
+  t = s;
+  while(length(t) > 0 & (substring(t, 0, 1) == "?" % substring(t, 0, 1) == "#"), t = substring(t, 1, length(t)));
+  t
+);
+// value of a hex digit character (0..15), -1 if it is none
+hexVal(ch) := indexof("0123456789abcdef", strLower(ch)) - 1;
+// %XX -> character (ASCII 32..126 only)
+urlDecode(s) := (
+  regional(out, k, n, c, h1, h2, code);
+  out = "";  k = 1;  n = length(s);
+  while(k <= n, (
+    c = substring(s, k - 1, k);
+    code = 0;
+    if(c == "%" & k + 2 <= n, (
+      h1 = hexVal(substring(s, k, k + 1));  h2 = hexVal(substring(s, k + 1, k + 2));
+      if(h1 >= 0 & h2 >= 0, code = 16*h1 + h2);
+    ));
+    if(code >= 32 & code <= 126,
+      (out = out + substring(strAscii, code - 32, code - 31); k = k + 3),
+      (out = out + c; k = k + 1)
+    );
+  ));
+  out
+);
+
+// "key=value&key2=value2" -> [[key (lower case), value], ...]; in values a space (from "+" or %20) is read as "+"
+urlParse(raw) := (
+  regional(pairs, tok, p, key, val);
+  pairs = [];
+  forall(strSplit(raw, "&"), tok, if(length(tok) > 0, (
+    p = indexof(tok, "=");
+    if(p == 0, (key = tok; val = ""), (key = substring(tok, 0, p - 1); val = substring(tok, p, length(tok))));
+    pairs = pairs ++ [[strLower(urlDecode(key)), replace(urlDecode(val), " ", "+")]];
+  )));
+  pairs
+);
+urlHas(key) := length(select(urlPairs, pr, pr_1 == key)) > 0;
+urlVal(key) := (        // last value of the key ("" if absent)
+  regional(m);
+  m = select(urlPairs, pr, pr_1 == key);
+  if(length(m) > 0, m_(length(m))_2, "")
+);
+
+// ---- value parsers: return [] if invalid, otherwise [value] ----
+// decimal number with optional sign and "." or "," (no exponent)
+numParse(s) := (
+  regional(t, sg, body, ok, dots, digs, ch);
+  t = replace(s, ",", ".");
+  sg = 1;  body = t;
+  if(length(t) > 0 & (substring(t, 0, 1) == "-" % substring(t, 0, 1) == "+"),
+    (if(substring(t, 0, 1) == "-", sg = -1); body = substring(t, 1, length(t))));
+  ok = length(body) > 0;  dots = 0;  digs = 0;
+  forall(strChars(body), ch,
+    if(ch == ".", dots = dots + 1, if(indexof(strDigits, ch) > 0, digs = digs + 1, ok = false)));
+  if(ok & dots <= 1 & digs >= 1,
+    (
+      if(substring(body, 0, 1) == ".", body = "0" + body);
+      if(substring(body, length(body) - 1, length(body)) == ".", body = body + "0");
+      [sg*parse(body)]
+    ),
+    []
+  )
+);
+numIn(s, lo, hi) := (
+  regional(r);
+  r = numParse(s);
+  if(length(r) == 1, if(r_1 >= lo & r_1 <= hi, r, []), [])
+);
+
+// complex number "0.5+0.5i", "0.6i", "-i", "0.8" -> [[re, im]] or []
+cxParse(s) := (
+  regional(t, terms, cur, ch, ok, re0, im0, term, n, c, v, k);
+  t = replace(replace(replace(s, ",", "."), "I", "i"), " ", "");
+  terms = [];  cur = "";  ok = length(t) > 0;
+  forall(strChars(t), ch,
+    if(ch == "+" % ch == "-",
+      if(cur == "", cur = ch,
+        if(cur == "+" % cur == "-", ok = false, (terms = terms ++ [cur]; cur = ch))),
+      cur = cur + ch));
+  if(cur == "" % cur == "+" % cur == "-", ok = false, terms = terms ++ [cur]);
+  re0 = 0;  im0 = 0;
+  if(ok, forall(terms, term, (
+    n = length(term);
+    if(substring(term, n - 1, n) == "i",
+      (
+        c = substring(term, 0, n - 1);
+        v = if(c == "" % c == "+", [1], if(c == "-", [-1], numParse(c)));
+        if(length(v) == 0, ok = false, im0 = im0 + v_1);
+      ),
+      (
+        v = numParse(term);
+        if(length(v) == 0, ok = false, re0 = re0 + v_1);
+      )
+    );
+  )));
+  if(ok, [[re0, im0]], [])
+);
+
+// row list "alle" | "keine" | "1-10,15" within lo..N -> [1, sorted list] or [0, []] if invalid
+rowsParse(s, lo, N) := (
+  regional(t, seen, ok, tok, parts, good, a, b, k);
+  t = strLower(replace(s, " ", ""));
+  if(t == "alle" % t == "all", [1, if(N >= lo, lo..N, [])],
+    if(t == "keine" % t == "none", [1, []],
+      (
+        seen = apply(1..(N + 2), k, 0);          // seen_(k+1) = 1: row k selected
+        ok = false;
+        forall(strSplit(t, ","), tok, (
+          parts = strSplit(tok, "-");
+          good = if(length(parts) == 1, isDigits(parts_1),
+                   if(length(parts) == 2, isDigits(parts_1) & isDigits(parts_2), false));
+          if(good, (
+            ok = true;
+            a = parse(parts_1);  b = if(length(parts) == 2, parse(parts_2), a);
+            if(max(lo, a) <= min(N, b), forall(max(lo, a)..min(N, b), k, seen_(k + 1) = 1));
+          ));
+        ));
+        if(ok, [1, if(N >= lo, select(lo..N, k, seen_(k + 1) == 1), [])], [0, []])
+      )
+    )
+  )
+);
+
+// set the start configuration from the URL (called once by JS after the CindyJS object exists)
+cfgFromUrl(search, hash) := (
+  regional(v, x, k, ca, cb, nrm, nn, rr);
+  urlPairs = urlParse(urlStrip(search) + "&" + urlStrip(hash));
+  nn = 5;                                              // N used to read row lists (default N)
+  v = urlVal("lang");
+  if(v == "de" % v == "en", lang = v);
+  v = strLower(urlVal("theme"));
+  if(v == "light", themeUser = 0);  if(v == "dark", themeUser = 1);
+  v = strLower(urlVal("coin"));
+  forall(1..4, k, if(coinNames_k == v, (stP = coinPre_k_1; stPhi = coinPre_k_2)));
+  x = numIn(urlVal("p"), 0, 1);    if(length(x) == 1, stP = x_1);
+  x = numIn(urlVal("phi"), 0, 2);  if(length(x) == 1, stPhi = x_1/2);
+  v = strLower(urlVal("start"));
+  forall(1..4, k, if(startNames_k == v, (zUpS = startPre_k_1; zDownS = startPre_k_2)));
+  if(urlHas("a") % urlHas("b"),
+    (
+      ca = if(urlHas("a"), cxParse(urlVal("a")), [[0, 0]]);
+      cb = if(urlHas("b"), cxParse(urlVal("b")), [[0, 0]]);
+      if(length(ca) == 1 & length(cb) == 1, (
+        nrm = sqrt(ca_1_1^2 + ca_1_2^2 + cb_1_1^2 + cb_1_2^2);
+        if(nrm > 1e-12, (zUpS = ca_1/nrm; zDownS = cb_1/nrm));
+      ));
+    )
+  );
+  x = numIn(urlVal("n"), 0, 100);
+  if(length(x) == 1, (nn = round(x_1); stN = nn; maxSteps = nn));
+  x = numIn(urlVal("speed"), 0, 1e9);
+  if(length(x) == 1, if(x_1 > 0, stSp = log(min(12, max(0.8, x_1))/12)/log(0.8/12)));
+  v = urlVal("galton");  if(v == "1" % v == "true", gauss = true);
+  x = numIn(urlVal("q"), 0, 1);    if(length(x) == 1, stQ = x_1);
+  if(urlHas("ort"), (
+    rr = rowsParse(urlVal("ort"), 1, nn);
+    if(rr_1 == 1, (msRowsU = apply(1..maxmaxSteps, k, if(contains(rr_2, k), 1, 0)); msPosOn = true));
+  ));
+  if(urlHas("qubit"), (
+    rr = rowsParse(urlVal("qubit"), 0, nn);
+    if(rr_1 == 1, (msCoinU = apply(1..(maxmaxSteps + 1), k, if(contains(rr_2, k - 1), 1, 0)); msCoinOn = true));
+  ));
+  v = urlVal("mittel");  if(v == "1" % v == "true", msExOn = true);
+  v = urlVal("zeilen");  if(v == "1" % v == "true", msMiniOn = true);
+  // animation mode last: it wins over measurement parameters (the flags stay set but measurement is off)
+  if(strLower(urlVal("mode")) == "anim", animSetMode(true));    // clamps N like the chip
+  msSync();
+  layChanged = true;
+);
+
+// ---- link: the current state as a query string ----
+// number with at most 4 decimals, trailing zeros removed
+linkNum(x) := (
+  regional(k, ip, fp, str);
+  k = round(abs(x)*10000);
+  if(k == 0, "0",
+    (
+      ip = floor(k/10000);  fp = k - 10000*ip;
+      str = "" + ip;
+      if(fp > 0, (
+        fp = "" + (10000 + fp);                       // "1dddd"
+        fp = substring(fp, 1, 5);
+        while(substring(fp, length(fp) - 1, length(fp)) == "0", fp = substring(fp, 0, length(fp) - 1));
+        str = str + "." + fp;
+      ));
+      if(x < 0, "-", "") + str
+    )
+  )
+);
+// complex amplitude z = [re, im] -> "0.5+0.5i", "0.6i", "-i", "0.8"
+linkCx(z) := (
+  regional(re0, im0, is);
+  re0 = if(abs(z_1) < 5e-5, 0, z_1);  im0 = if(abs(z_2) < 5e-5, 0, z_2);
+  if(im0 == 0, linkNum(re0),
+    (
+      is = if(abs(im0 - 1) < 5e-5, "", if(abs(im0 + 1) < 5e-5, "-", linkNum(im0))) + "i";
+      if(re0 == 0, is, linkNum(re0) + if(substring(is, 0, 1) == "-", "", "+") + is)
+    )
+  )
+);
+// list of selected rows -> "alle" | "keine" | ranges "1-3,7"
+linkRows(l, lo, N) := (
+  regional(n, out, i, j);
+  n = length(l);
+  if(n == 0, "keine",
+    if(n == N - lo + 1, "alle",
+      (
+        out = [];  i = 1;
+        while(i <= n, (
+          j = i;
+          while(j < n & l_(min(j + 1, n)) == l_j + 1, j = j + 1);
+          out = out ++ [if(j > i, "" + l_i + "-" + l_j, "" + l_i)];
+          i = j + 1;
+        ));
+        strJoin(out, ",")
+      )
+    )
+  )
+);
+
+// query string (without "?") of the current state; presets are written by name, defaults are omitted
+linkQuery() := (
+  regional(q, hit, k);
+  q = [];
+  if(lang == "de", q = q ++ ["lang=de"]);   // only the non-default language goes into the link
+  if(themeUser >= 0, q = q ++ ["theme=" + if(themeUser == 1, "dark", "light")]);     // only after an explicit choice
+  hit = 0;  forall(1..4, k, if(hit == 0 & coinActive(k), hit = k));
+  if(hit == 0, q = q ++ ["p=" + linkNum(stP), "phi=" + linkNum(2*stPhi)],
+    if(hit != 1, q = q ++ ["coin=" + coinNames_hit]));
+  hit = 0;  forall(1..4, k, if(hit == 0 & startActive(k), hit = k));
+  if(hit == 0, q = q ++ ["a=" + linkCx(zUpS), "b=" + linkCx(zDownS)],
+    if(hit != 4, q = q ++ ["start=" + startNames_hit]));
+  if(animOn, q = q ++ ["mode=anim", "speed=" + linkNum(12*(0.8/12)^stSp)]);
+  if(animOn & animNSaved > 0, q = q ++ ["N=" + animNSaved],
+    if(stN != 5, q = q ++ ["N=" + stN]));
+  if(gauss, q = q ++ ["galton=1", "q=" + linkNum(stQ)]);
+  if(!animOn, (    // measurement and animation mode exclude each other
+    if(msPosOn, q = q ++ ["ort=" + linkRows(if(maxSteps > 0, select(1..maxSteps, k, msRowsU_k == 1), []), 1, stN)]);
+    if(msCoinOn, q = q ++ ["qubit=" + linkRows(select(0..maxSteps, k, msCoinU_(k + 1) == 1), 0, stN)]);
+    if(msExOn, q = q ++ ["mittel=1"]);
+    if(msMiniOn, q = q ++ ["zeilen=1"]);
+  ));
+  strJoin(q, "&")
+);
+
+// show the link in the HTML overlay (JS adds the page address in front)
+linkOpen() := javascript("qwShowLink('" + linkQuery() + "','" + tr("linkHint") + "')");
+
+
+// =====================================================================
+// 10  START-UP: initial values of the slider-driven variables
+// (the handles themselves are placed by layRemap() in the first frame)
+// =====================================================================
+histFrac = 0.28;    // share of the walk height used by the histogram
+histGap  = 0.6;     // gap above the top row of the board: room for the measurement column headers (always reserved)
+maxSteps = stN;
+coinP = stP;
+coinRot = 2*pi*stPhi;
+coin = coinGen(coinP, coinRot);
+
+javascript("qwReady()");      // tell the JS part that all definitions exist (it then sets the view and the URL configuration)
 </script>
 <script id="csdraw" type="text/x-cindyscript">
-//Script (CindyScript)
-maketitle();
-makefooter();
-walk = [initState];
-repeat(maxSteps,
-  walk = walk ++ [walkstep(walk_(-1))]
-);
-
-// --- build rectangle from two draggable points C1, C2 (points, not lists) ---
-BL = [min(C1.x, C2.x), min(C1.y, C2.y)];   // bottom-left
-TR = [max(C1.x, C2.x), max(C1.y, C2.y)];   // top-right
-
-// --- choose fractions/gap ---
-histFrac = 1/3;     // top area for histogram (0..1)
-gap      = 0.05;    // small vertical gap above the top row
-
-// --- draw everything packed into [BL, TR] ---
-drawWalkInRectWithFrac(walk, BL, TR, histFrac, gap);
-;
-//Script (CindyScript)
-//slider p
-makeslider(SLC.x,SLC.y,sliderL,2);
-drawCoinPanelBox(sliderMx, sliderMy, sliderL, 2, 0.35, 0.35, 0.06);
-initphase(IC, initphaseR, false);
-
-;
-
+// main loop: layout -> header -> single run -> measurement bookkeeping -> board + histogram -> cards
+uiHits = [];                     // click targets are collected while drawing
+themeApply();
+titleApply();
+animTick();                      // animation clock and progress
+fillpoly(screenbounds(), color->thBg, alpha->1);     // background (first thing drawn)
+msOn = (msPosOn % msCoinOn) & !animOn;    // any measurement kind on (animation mode: measurement off, flags kept)
+msEffective();                   // flags of a disabled kind are ignored (but kept)
+computeLayout();
+if(layChanged, layRemap());
+drawTitle();
+drawFooter();
+computeSingleRun();              // fills walk, msOut, msPre
+msUpdate();                      // invalidate / extend collected data and the exact ensemble
+// the walk rectangle is given by the two (hidden) handles C1, C2
+drawWalkInRectWithFrac(walk, [min(C1.x, C2.x), min(C1.y, C2.y)], [max(C1.x, C2.x), max(C1.y, C2.y)], histFrac, histGap);
+drawCards();
+loopSync();                      // the one place that starts / stops the CindyJS loop
 </script>
-    <script type="text/javascript">
-var cdy = CindyJS({
-  scripts: "cs*",
-  defaultAppearance: {
-    dimDependent: 0.7,
-    fontFamily: "sans-serif",
-    lineSize: 1,
-    pointSize: 5.0,
-    textsize: 12.0
-  },
-  angleUnit: "°",
-  geometry: [
-    {name: "slCoinpP", type: "Free", pos: [4.0, -2.999999999999999, 2.4999999999999996], dimDependent: 1, color: [0.098, 0.408, 0.596]},
-    {name: "slCoinPhiP", type: "Free", pos: [-0.24999999999999967, -4.0, 1.2499999999999998], dimDependent: 1, color: [0.098, 0.408, 0.596]},
-    {name: "slMaxStepP", type: "Free", pos: [0.07606557377049188, -4.0, 0.3278688524590164], dimDependent: 1, color: [0.545, 0.153, 0.153]},
-    {name: "upP", type: "Free", pos: [0.98594306888314, -4.0, 0.4273504273504274], dimDependent: 1, color: [0.914, 0.2, 0.224], border: false},
-    {name: "downP", type: "Free", pos: [0.7396370021168036, -4.0, 0.4622731263230022], dimDependent: 1, color: [0.094, 0.565, 0.996]},
-    {name: "C1", type: "Free", pos: [1.5999999999999999, -4.0, 0.3333333333333333], color: [0.831, 0.639, 1.0], visible: false, size: 3.0},
-    {name: "C2", type: "Free", pos: [4.0, 0.0, 0.25], color: [0.831, 0.639, 1.0], visible: false, size: 2.0},
-    {name: "SLC", type: "Free", pos: [4.0, -3.000000000000001, 2.5], color: [0.012, 0.655, 0.737], visible: false},
-    {name: "IC", type: "Free", pos: [0.6837606837606838, -4.0, 0.4273504273504274], color: [0.51, 0.949, 1.0], visible: false},
-    {name: "btBinom", type: "ToggleButton", pos: [4.0, -0.8837073589422092, 0.24749589166059843], dimDependent: 1, color: [0.38, 0.4, 0.278], fillcolor: [1.0, 1.0, 1.0], fillalpha: 0.27272728085517883, script: "gauss = !gauss;", text: "Binomialverteilung (p=.5)"}
-  ],
-  ports: [{
-    width: 1270,
-    height: 802,
-    id: "CSCanvas",
-    transform: [{visibleRect: [-0.9706238028914589, 1.0621361735229418, 18.872773795333536, -13.46889128614355]}],
-    background: "rgb(255,255,255)"
-  }],
-  csconsole: false,
-  use: ["katex"],
-  cinderella: {build: 2091, version: [3, 0, 2091]}
+<script id="csmouseup" type="text/x-cindyscript">
+// click on a text chip: find the hit rectangle under the mouse and run its action
+uiM = mouse();
+uiBest = 1e9;  uiBestA = "";
+forall(uiHits, uiH,
+  if(uiM_1 >= uiH_1 & uiM_1 <= uiH_3 & uiM_2 >= uiH_2 & uiM_2 <= uiH_4,
+    (
+      uiD = ((uiM_1 - (uiH_1 + uiH_3)/2)/(uiH_3 - uiH_1))^2 + ((uiM_2 - (uiH_2 + uiH_4)/2)/(uiH_4 - uiH_2))^2;
+      if(uiD < uiBest, (uiBest = uiD; uiBestA = uiH_5));
+    ))
+);
+if(uiBestA != "", uiAct(uiBestA));
+repaint();
+</script>
+<script type="text/javascript">
+// =====================================================================
+// JavaScript part: only what CindyScript cannot do.
+//  1. Sizing the visible rectangle of the port (CindyScript can read screenbounds() but cannot set the viewport).
+//     The scale kd is computed here BEFORE CindyJS starts by a small mirror of the arrangement rule (qwDims / qwKdOf / qwPick),
+//     with all constants read from the csinit text, so they exist only once. computeLayout() then reads the
+//     visible world with screenbounds() and runs the real layPick on it.
+//  2. Passing location.search / location.hash to CindyScript (cfgFromUrl) once at start.
+//  3. Showing the link overlay (an HTML element); the text is built by CindyScript (linkOpen).
+//  4. Repaint workaround: CindyJS does not redraw on a plain click.
+//  5. Delaying the start until the page has a real size.
+// =====================================================================
+var cdy = null;
+var qwVR = [0, 0, 1, -1];     // visible rectangle of the port, mutated in place (CindyJS keeps a reference)
+
+// constants parsed from the csinit text: lines "cdName = number;" and "layCands = [...];"
+var QWC = {};
+var qwCs = document.getElementById("csinit").textContent;
+qwCs.replace(/^\s*(cd[A-Za-z0-9]+)\s*=\s*(-?[0-9.]+)\s*;/gm, function (m, k, v) { QWC[k] = parseFloat(v); return m; });
+var QW_CANDS = JSON.parse(qwCs.match(/^\s*layCands\s*=\s*(\[\[.*?\]\])\s*;/m)[1]);
+
+// Mirror of layDims / layKd / layPick (CindyScript): qwDims / qwKdOf / qwKd must match them.
+// Card heights of the measurement card as in layMsCardH.
+function qwMsCardH(wc) { var C = QWC; return wc >= C.cdMs3W ? C.cdMsH : (wc >= C.cdMs2W ? C.cdCH : C.cdMs1H); }
+// needed [width, height] (world units) of arrangement cand = [columns, rows, place, ms] (layDims)
+function qwDims(cand) {
+  var C = QWC, c = cand[0], r = cand[1], pl = cand[2], sm = cand[3];
+  var bw = c * C.cdCW + (c - 1) * C.cdGap, bh = r * C.cdCH + (r - 1) * C.cdGap, wt = C.cdWalkTop, dW, dH, wn, hn;
+  if (sm === 3 && pl === 1) {                        // T2: tabs beside the walk
+    dW = 2 * C.cdMg + C.cdCW + C.cdWalkGap + C.cdChkW + C.cdRm;
+    wn = dW + C.cdTabWalkW;
+    dH = wt + C.cdMg + C.cdFootH;
+    hn = Math.max(C.cdTitleH + C.cdTabH2 + Math.max(C.cdCH, qwMsCardH(C.cdCW)) + C.cdMg, dH + C.cdWalkMinH);
+  } else if (sm === 3) {                             // T1: tabs below the walk
+    dW = 2 * C.cdMg + C.cdChkW + C.cdRm;
+    wn = Math.max(dW + C.cdTabWalkW, 2 * C.cdMg + C.cdCW);
+    hn = wt + C.cdWalkMinH + C.cdWalkGap + C.cdTabH + Math.max(C.cdCH, qwMsCardH(wn - 2 * C.cdMg)) + 0.15 + C.cdFootH + C.cdMg;
+  } else if (pl === 0) {                             // B, C: block below, measurement row under it
+    dW = 2 * C.cdMg + C.cdChkW + C.cdRm;
+    wn = Math.max(dW + C.cdWalkMinW, 2 * C.cdMg + bw);
+    hn = wt + C.cdWalkMinH + C.cdWalkGap + C.cdHasMs * (qwMsCardH(bw) + C.cdGap) + bh + 0.15 + C.cdFootH + C.cdMg;
+  } else {                                           // A: block beside, measurement card below the block
+    dW = 2 * C.cdMg + bw + C.cdWalkGap + C.cdChkW + C.cdRm;
+    wn = dW + C.cdWalkMinW;
+    dH = wt + C.cdMg + C.cdFootH;
+    hn = Math.max(C.cdTitleH + bh + C.cdGap + C.cdMsBelowH + C.cdMg, dH + C.cdWalkMinH);
+  }
+  return [wn, hn];
+}
+// kd of arrangement index k (1-based as in layCands): pixels per unit in a window of w x h pixels (layKd)
+function qwKdOf(k, w, h) {
+  var d = qwDims(QW_CANDS[k - 1]);
+  return Math.min(QWC.cdKdMax, Math.min(w / d[0], h / d[1]));
+}
+// pixels per world unit for a window of w x h pixels (layPick, second result).
+// Decision chain (A, B, C, T1, T2 = indices 1..5; an arrangement "fits" if its kd >= cdTabKd):
+//   1. landscape = (width >= height)
+//   2. narrower than cdTabMaxPx: tabs (landscape: T2 beside, portrait: T1 below)
+//   3. landscape: A if it fits, else T2
+//   4. portrait: B if it fits, else C if it fits, else T1
+// Tabs are the fallback and are used even when they stay small (kd is never below cdMinKd).
+function qwPick(w, h) {
+  var C = QWC, land = w >= h, sel = land ? 5 : 4;
+  if (w >= C.cdTabMaxPx) {
+    if (land) { if (qwKdOf(1, w, h) >= C.cdTabKd) sel = 1; }
+    else if (qwKdOf(2, w, h) >= C.cdTabKd) sel = 2;
+    else if (qwKdOf(3, w, h) >= C.cdTabKd) sel = 3;
+  }
+  return [sel, Math.max(C.cdMinKd, qwKdOf(sel, w, h))];
+}
+function qwKd(w, h) { return qwPick(w, h)[1]; }
+// inner size of the page without scrollbars / browser toolbars (innerWidth / 100vh can be larger in Safari)
+function qwPageSize() {
+  var de = document.documentElement;
+  return [Math.max(200, de.clientWidth || window.innerWidth), Math.max(200, de.clientHeight || window.innerHeight)];
+}
+function qwUpdateVR() {
+  var s = qwPageSize(), kd = qwKd(s[0], s[1]);
+  qwVR[0] = 0; qwVR[1] = 0; qwVR[2] = s[0] / kd; qwVR[3] = -s[1] / kd;
+}
+qwUpdateVR();
+// registered before CindyJS' own (deferred) resize handler, so the rectangle is up to date when it reads it
+window.addEventListener("resize", qwUpdateVR);
+
+// A click on a chip changes state in the csmouseup script, but CindyJS does not
+// redraw on a plain click (only on the next mouse move). Force one repaint after
+// every mouse/touch release so presets and toggles take effect immediately.
+// A second repaint ~250 ms later ends the 0.2 s pressed state of the chip without mouse movement.
+function qwRepaintSoon() {
+  setTimeout(function () { if (cdy) cdy.evokeCS("repaint();"); }, 0);
+  setTimeout(function () { if (cdy) cdy.evokeCS("repaint();"); }, 250);
+}
+["mouseup", "pointerup", "touchend"].forEach(function (ev) {
+  window.addEventListener(ev, qwRepaintSoon, true);
 });
-    </script>
+
+// ---- link panel: shows the page address + query string from CindyScript (linkOpen) ----
+var qwPanel = null, qwInput = null, qwDark = 0;
+// theme switch (called by CindyScript themeApply on a change): page background (no light border), link panel style
+function qwTheme(d) {
+  qwDark = d ? 1 : 0;
+  document.documentElement.style.background = document.body.style.background = qwDark ? "#121417" : "#fff";
+  document.documentElement.style.colorScheme = qwDark ? "dark" : "light";
+  if (qwPanel) qwPanel.className = qwDark ? "qwdark" : "";
+}
+// system preference -> CindyScript (sysDark); the user's explicit choice (themeUser) takes precedence there
+var qwMQ = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+function qwSysTheme() {
+  if (cdy && qwCsReady) cdy.evokeCS("sysDark = " + (qwMQ && qwMQ.matches ? 1 : 0) + ";repaint();");
+}
+// touch device (coarse primary pointer) -> CindyScript (touchSet): bigger hit areas / chips / handles
+var qwTQ = window.matchMedia ? window.matchMedia("(pointer: coarse)") : null;
+function qwTouch() {
+  if (cdy && qwCsReady) cdy.evokeCS("touchSet(" + (qwTQ && qwTQ.matches ? 1 : 0) + ");repaint();");
+}
+if (qwTQ) { if (qwTQ.addEventListener) qwTQ.addEventListener("change", qwTouch); else if (qwTQ.addListener) qwTQ.addListener(qwTouch); }
+if (qwMQ) { if (qwMQ.addEventListener) qwMQ.addEventListener("change", qwSysTheme); else if (qwMQ.addListener) qwMQ.addListener(qwSysTheme); }
+function qwShowLink(query, hint) {
+  if (!qwPanel) {
+    qwPanel = document.createElement("div");
+    qwPanel.id = "qwPanel"; qwPanel.className = qwDark ? "qwdark" : "";
+    qwPanel.style.cssText = "position:absolute;left:50%;top:70px;transform:translateX(-50%);z-index:100;width:min(92vw,680px);box-sizing:border-box;" +
+      "background:#fff;border:1.5px solid #2682c5;border-radius:8px;box-shadow:0 4px 18px rgba(0,0,0,.3);padding:12px 14px;font:13px sans-serif;color:#333;display:none";
+    var x = document.createElement("button");
+    x.textContent = "×"; x.title = "Close";
+    x.style.cssText = "position:absolute;right:6px;top:2px;border:0;background:none;font-size:24px;line-height:1;cursor:pointer;color:#555";
+    x.onclick = qwHideLink;
+    qwInput = document.createElement("input");
+    qwInput.type = "text"; qwInput.readOnly = true;
+    qwInput.style.cssText = "width:100%;box-sizing:border-box;font:13px monospace;padding:6px;border:1px solid #999;border-radius:4px;margin-top:4px";
+    qwInput.onfocus = function () { qwInput.select(); };
+    var h = document.createElement("div");
+    h.id = "qwHint"; h.style.cssText = "margin-top:6px;color:#666";
+    qwPanel.appendChild(x); qwPanel.appendChild(qwInput); qwPanel.appendChild(h);
+    document.body.appendChild(qwPanel);
+    window.addEventListener("keydown", function (e) { if (e.key === "Escape" && qwPanel.style.display !== "none") qwHideLink(); }, true);
+  }
+  document.getElementById("qwHint").textContent = hint;
+  qwInput.value = location.href.split(/[?#]/)[0] + (query ? "?" + query : "");
+  qwPanel.style.display = "block";
+  qwInput.focus(); qwInput.select();
+  setTimeout(function () { qwInput.focus(); qwInput.select(); }, 60);
+}
+function qwHideLink() { if (qwPanel) qwPanel.style.display = "none"; }
+
+function qwStart() {
+  if (cdy) return;
+  cdy = CindyJS({
+    scripts: "cs*",
+    defaultAppearance: {
+      dimDependent: 0.7,
+      fontFamily: "sans-serif",
+      lineSize: 1,
+      pointSize: 5.0,
+      textsize: 12.0
+    },
+    angleUnit: "°",
+    geometry: [
+      {name: "slCoinpP", type: "Free", pos: [4.0, -2.999999999999999, 2.4999999999999996], dimDependent: 1, color: [0.098, 0.408, 0.596]},
+      {name: "slCoinPhiP", type: "Free", pos: [-0.24999999999999967, -4.0, 1.2499999999999998], dimDependent: 1, color: [0.098, 0.408, 0.596]},
+      {name: "slMaxStepP", type: "Free", pos: [0.07606557377049188, -4.0, 0.3278688524590164], dimDependent: 1, color: [0.545, 0.153, 0.153]},
+      {name: "slSpP", type: "Free", pos: [-20.0, 20.0, 1.0], dimDependent: 1, color: [0.27, 0.29, 0.31]},
+      {name: "slQP", type: "Free", pos: [-20.0, 20.0, 1.0], dimDependent: 1, color: [0.196, 0.588, 0.333]},
+      {name: "upP", type: "Free", pos: [0.98594306888314, -4.0, 0.4273504273504274], dimDependent: 1, color: [0.914, 0.2, 0.224], border: false},
+      {name: "downP", type: "Free", pos: [0.7396370021168036, -4.0, 0.4622731263230022], dimDependent: 1, color: [0.094, 0.565, 0.996]},
+      {name: "C1", type: "Free", pos: [1.5999999999999999, -4.0, 0.3333333333333333], color: [0.831, 0.639, 1.0], visible: false, size: 3.0},
+      {name: "C2", type: "Free", pos: [4.0, 0.0, 0.25], color: [0.831, 0.639, 1.0], visible: false, size: 2.0},
+      {name: "SLC", type: "Free", pos: [4.0, -3.000000000000001, 2.5], color: [0.012, 0.655, 0.737], visible: false},
+      {name: "IC", type: "Free", pos: [0.6837606837606838, -4.0, 0.4273504273504274], color: [0.51, 0.949, 1.0], visible: false}
+    ],
+    ports: [{
+      fill: "parent",
+      id: "CSCanvas",
+      transform: [{visibleRect: qwVR}],
+      background: "rgb(255,255,255)"
+    }],
+    csconsole: false,
+    use: ["katex"],
+    cinderella: {build: 2091, version: [3, 0, 2091]}
+  });
+  qwConfigure();
+}
+// Runs once, as soon as the CindyJS object exists AND csinit has finished (whichever comes last; csinit may run
+// asynchronously, after plugins are loaded, and would overwrite anything evoked earlier).
+var qwCsReady = false, qwConfigured = false;
+function qwReady() { qwCsReady = true; qwConfigure(); }
+function qwConfigure() {
+  if (!cdy || !qwCsReady || qwConfigured) return;
+  qwConfigured = true;
+  // start configuration from the URL (quotes / backslashes cannot occur in valid parameters and are dropped)
+  var raw = function (s) { return JSON.stringify(String(s).replace(/["\\]/g, "")); };
+  cdy.evokeCS("sysDark = " + (qwMQ && qwMQ.matches ? 1 : 0) + ";");
+  cdy.evokeCS("touchSet(" + (qwTQ && qwTQ.matches ? 1 : 0) + ");");
+  cdy.evokeCS("cfgFromUrl(" + raw(location.search) + "," + raw(location.hash) + ");repaint();");
+}
+
+// Start only when the page has a real size: in a hidden tab / pane / display:none container the canvas is 0 x 0 and
+// CindyJS would compute NaN handle positions (they never recover). Wait for the first resize / visibility change instead.
+function qwSized() { var de = document.documentElement; return de.clientWidth > 40 && de.clientHeight > 40; }
+function qwTryStart() { if (!cdy && qwSized()) qwStart(); }
+qwTryStart();
+if (!cdy) {
+  window.addEventListener("resize", qwTryStart);
+  document.addEventListener("visibilitychange", qwTryStart);
+  var qwPoll = setInterval(function () { qwTryStart(); if (cdy) clearInterval(qwPoll); }, 250);
+}
+</script>
 </head>
 <body>
-    <div id="CSCanvas"></div>
+  <div id="CSCanvas"></div>
 </body>
 </html>
