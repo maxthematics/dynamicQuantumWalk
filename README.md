@@ -1,5 +1,7 @@
 # Discrete 1D Quantum Walk – interactive applet
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23184139.svg)](https://doi.org/10.5281/zenodo.23184139)
+
 An interactive browser applet for the discrete one-dimensional quantum walk of a qubit,
 made for physics and mathematics education (school and teacher training).
 
@@ -41,8 +43,12 @@ These libraries are **not** included in this repository:
 
 ## Citation
 
-If you use the applet in teaching material or publications, please cite it
-(see `CITATION.cff`; a DOI is provided via Zenodo for each release).
+If you use the applet in teaching material or publications, please cite it:
+
+> Hoffmann, M. (2026). *Discrete 1D Quantum Walk – interactive applet*. Zenodo.
+> https://doi.org/10.5281/zenodo.23184139
+
+See also `CITATION.cff`.
 
 ## Funding
 
