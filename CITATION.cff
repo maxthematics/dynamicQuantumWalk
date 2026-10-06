@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use this applet, please cite it as below."
+type: software
+title: "Discrete 1D Quantum Walk – interactive applet"
+abstract: >-
+  Interactive CindyJS applet for the discrete one-dimensional quantum walk of a qubit,
+  designed for physics and mathematics education. It visualises amplitudes as arrows,
+  the probability distribution, the comparison with a classical Galton board,
+  position and qubit measurements (single runs, exact ensemble average, collected
+  frequencies) and an animation of the individual computation steps.
+authors:
+  - family-names: Hoffmann
+    given-names: Max
+    affiliation: Paderborn University
+    orcid: "https://orcid.org/0000-0002-6964-7123"
+version: v2026Oct05
+date-released: "2026-10-05"
+license: MIT
+url: "https://maxthematics.github.io/dynamicQuantumWalk/quantumwalk.html"
+repository-code: "https://github.com/maxthematics/dynamicQuantumWalk"
+keywords:
+  - quantum walk
+  - qubit
+  - quantum physics education
+  - mathematics education
+  - interactive visualisation
+  - CindyJS
